@@ -24,7 +24,8 @@ import 'package:learninglens_app/Api/llm/enum/llm_enum.dart';
 import 'package:learninglens_app/Api/llm/local_llm_service.dart'; // local llm
 
 class GamificationView extends StatefulWidget {
-  const GamificationView({super.key});
+  final bool viewGames;
+  const GamificationView({super.key, required this.viewGames});
 
   @override
   State<GamificationView> createState() => _GamificationViewState();
@@ -144,7 +145,7 @@ class _GamificationViewState extends State<GamificationView> {
             ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: isTeacher ? _buildTeacherUI(context) : _buildStudentUI(),
+        child: (isTeacher && !widget.viewGames) ? _buildTeacherUI(context) : _buildStudentUI(),
       ),
     );
   }

@@ -104,7 +104,7 @@ class MyApp extends StatelessWidget {
         '/assessments': (context) => AssessmentsView(),
         // '/viewExams': (context) => const View Exam Page(),
         // '/settings': (context) => Setting(themeModeNotifier: _themeModeNotifier)
-        '/gamification': (context) => GamificationView(),
+        '/gamification': (context) => GamificationView(viewGames: false,),
         '/evaluate': (context) => ProgramAssessmentView()
       },
     );
