@@ -62,6 +62,7 @@ dev_dependencies:
 flutter:
   assets:
     - assets/login_image.png
+    - assets/GameLeaderboard.txt
     - ./.env
 
   uses-material-design: true
