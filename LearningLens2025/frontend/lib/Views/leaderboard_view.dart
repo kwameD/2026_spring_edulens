@@ -15,12 +15,14 @@ class LeaderboardTable extends StatefulWidget {
 class _LeaderboardTableState extends State<LeaderboardTable> {
   List<Map<String, dynamic>>? _parsedScores;
   
+  // Set the initial state of the leaderboard contents
   @override
   void initState() {
     super.initState();
     _loadLeaderboard();
   }
 
+  // Loads the leaderboard details for displaying in the UI
   Future<void> _loadLeaderboard() async {
     try {
       String jsonString = await rootBundle.loadString('assets/GameLeaderboard.txt');
@@ -36,6 +38,7 @@ class _LeaderboardTableState extends State<LeaderboardTable> {
     }
   }
 
+  // Builds the UI for the leaderboard table
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,50 +47,59 @@ class _LeaderboardTableState extends State<LeaderboardTable> {
         userprofileurl: LmsFactory.getLmsService().profileImage ?? '',
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.leaderboard_outlined,
-            size: 120,
-          ),
-          Container(
-          margin: const EdgeInsets.all(10),
-          child: Table(
-            border: TableBorder.all(color: Colors.black, width: 1.0),
-            children: [
-              // Header Row
-              TableRow(children: [
-                TableCell(child: Center(child: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold),),)),
-                TableCell(child: Center(child: Text('Game', style: TextStyle(fontWeight: FontWeight.bold),))),
-                TableCell(child: Center(child: Text('Score', style: TextStyle(fontWeight: FontWeight.bold)),)),
-              ]),
-              // Data Rows
-              if (_parsedScores != null && _parsedScores!.isNotEmpty) 
-
-              ..._parsedScores!.asMap().entries.map((entry) {
-                var value = entry.value;
-
-                return TableRow(
+      body: _parsedScores == null
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+          onRefresh: () async {
+            await _loadLeaderboard();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.leaderboard_outlined,
+                  size: 120,
+                ),
+                Container(
+                margin: const EdgeInsets.all(10),
+                child: Table(
+                  border: TableBorder.all(color: Colors.black, width: 1.0),
                   children: [
-                    TableCell(child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Text(value['student_name'].toString())),
-                    ),
-                    TableCell(child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Text(value['game_name'].toString())),
-                    ),
-                    TableCell(child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Text(value['score'].toString())),
-                    ),
-                  ]
-                );
-              })
-            ],
-          )
-        )]
+                    // Header Row
+                    TableRow(children: [
+                      TableCell(child: Center(child: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold),),)),
+                      TableCell(child: Center(child: Text('Game', style: TextStyle(fontWeight: FontWeight.bold),))),
+                      TableCell(child: Center(child: Text('Score', style: TextStyle(fontWeight: FontWeight.bold)),)),
+                    ]),
+                    // Data Rows
+                    if (_parsedScores != null && _parsedScores!.isNotEmpty)
+                    ..._parsedScores!.asMap().entries.map((entry) {
+                      var value = entry.value;
+
+                      return TableRow(
+                        children: [
+                          TableCell(child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Text(value['student_name'].toString())),
+                          ),
+                          TableCell(child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Text(value['game_name'].toString())),
+                          ),
+                          TableCell(child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Text(value['score'].toString())),
+                          ),
+                        ]
+                      );
+                    })
+                  ],
+                )
+              )]
+            ),
+          ), 
       )
     );
   }
