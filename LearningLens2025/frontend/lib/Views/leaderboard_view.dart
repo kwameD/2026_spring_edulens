@@ -57,33 +57,7 @@ class DatabaseSeeder {
   }
 }
 
-
 class _LeaderboardTableState extends State<LeaderboardTable> {
-  List<Map<String, dynamic>>? _parsedScores;
-  
-  // Set the initial state of the leaderboard contents
-  @override
-  void initState() {
-    super.initState();
-    _loadLeaderboard();
-  }
-
-  // Loads the leaderboard details for displaying in the UI
-  Future<void> _loadLeaderboard() async {
-    try {
-      String jsonString = await rootBundle.loadString('assets/GameLeaderboard.txt');
-      List<dynamic> jsonList = jsonDecode(jsonString);
-
-      if (mounted) {
-        setState(() {
-          _parsedScores = jsonList.cast<Map<String, dynamic>>();
-        });
-      }
-    } catch (e) {
-      print("Error while parsing: $e");
-    }
-  }
-
   // Builds the UI for the leaderboard table
   @override
   Widget build(BuildContext context) {
@@ -93,63 +67,60 @@ class _LeaderboardTableState extends State<LeaderboardTable> {
         userprofileurl: LmsFactory.getLmsService().profileImage ?? '',
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: _parsedScores == null
-        ? const Center(child: CircularProgressIndicator())
-        : RefreshIndicator(
-          onRefresh: () async {
-            await _loadLeaderboard();
-          },
-          child: SizedBox.expand(
-            child:           Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [StreamBuilder<QuerySnapshot>(
-              // Pull data from Firestore DB leaderboard collection to populate table
-              stream: FirebaseFirestore.instance
-                .collection('leaderboard')
-                .orderBy('score', descending: true)
-                .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) return Text('Error: ${snapshot.error}');
-                if (snapshot.connectionState == ConnectionState.waiting) return CircularProgressIndicator();
+      body: SizedBox.expand(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [StreamBuilder<QuerySnapshot>(
+            // Pull data from Firestore DB leaderboard collection to populate table
+            stream: FirebaseFirestore.instance
+              .collection('leaderboard')
+              .orderBy('score', descending: true)
+              .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text('Error loading leaderboard: ${snapshot.error}');
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return CircularProgressIndicator();
+              }
 
-                List<DataRow> rows = snapshot.data!.docs.map((doc) {
-                  Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-                  return DataRow(cells: [
-                    DataCell(Text(data['student_name'] ?? 'N/A')),
-                    DataCell(Text(data['game_name'] ?? 'N/A')),
-                    DataCell(Text(data['score'].toString())),
-                  ]);
-                }).toList();
+              List<DataRow> rows = snapshot.data!.docs.map((doc) {
+                Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                return DataRow(cells: [
+                  DataCell(Text(data['student_name'] ?? 'N/A')),
+                  DataCell(Text(data['game_name'] ?? 'N/A')),
+                  DataCell(Text(data['score'].toString())),
+                ]);
+              }).toList();
 
-                // Return the table with the gathered data, sorted by descending score
-                return SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.leaderboard_outlined,
-                        size: 120,
-                      ),
-                      Container(
-                        margin: const EdgeInsets.all(10),
-                        child: DataTable(
-                          border: TableBorder.all(color: Colors.black, width: 1.0),
-                          columns: const [
-                            DataColumn(label: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold),)),
-                            DataColumn(label: Text('Game Name', style: TextStyle(fontWeight: FontWeight.bold),)),
-                            DataColumn(label: Text('Score', style: TextStyle(fontWeight: FontWeight.bold),)),
-                          ],
-                          rows: rows,
-                        )
+              // Return the table with the gathered data, sorted by descending score
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.leaderboard_outlined,
+                      size: 120,
+                    ),
+                    Container(
+                      margin: const EdgeInsets.all(10),
+                      child: DataTable(
+                        border: TableBorder.all(color: Colors.black, width: 1.0),
+                        columns: const [
+                          DataColumn(label: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold),)),
+                          DataColumn(label: Text('Game Name', style: TextStyle(fontWeight: FontWeight.bold),)),
+                          DataColumn(label: Text('Score', style: TextStyle(fontWeight: FontWeight.bold),)),
+                        ],
+                        rows: rows,
                       )
-                    ]
-                  ),
-                );
-              },
-            )]
-          )
-        )
+                    )
+                  ]
+                ),
+              );
+            },
+          )]
+       )
       )
     );
   }
