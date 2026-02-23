@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
 import 'package:learninglens_app/Views/gamification_view.dart';
+import 'package:learninglens_app/Views/leaderboard_view.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
 
 class GamificationMenu extends StatefulWidget {
@@ -156,21 +157,10 @@ class _GameMenuState extends State<GamificationMenu> {
               title: 'Leaderboards',
               description: 'View the current leaderboards.',
               icon: Icons.leaderboard_outlined,
-              onPressed: () => showDialog(
-                context: context, 
-                builder: (context) {
-                  return AlertDialog(
-                    title: const Text('Not Yet Implemented'),
-                    content: const Text('The new leaderboards are not yet implemented'),
-                    actions: [
-                      TextButton(
-                        onPressed: Navigator.of(context).pop, 
-                        child: const Text('Close'),
-                      )
-                    ],
-                  );
-                },
-              ),
+              onPressed: () => Navigator.push(
+                context, 
+                MaterialPageRoute(builder: (context) => LeaderboardTable())
+              )
             ),
           )
         ],

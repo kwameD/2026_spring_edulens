@@ -1,11 +1,14 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:learninglens_app/Api/database/ai_logging_singleton.dart';
 import 'package:learninglens_app/Api/lms/enum/lms_enum.dart';
 import 'package:learninglens_app/Views/assessments_view.dart';
+import 'package:learninglens_app/Views/leaderboard_view.dart';
 import 'package:learninglens_app/Views/program_assessment_view.dart';
 import 'package:learninglens_app/Views/user_settings.dart';
+import 'package:learninglens_app/firebase_options.dart';
 import 'package:learninglens_app/notifiers/login_notifier.dart';
 import 'package:learninglens_app/notifiers/theme_notifier.dart';
 import 'package:learninglens_app/services/gamification_service.dart';
@@ -34,6 +37,8 @@ void main() async {
   await ProgramAssessmentService.createDb();
   await GamificationService.createDb();
   await ReflectionService.createDb();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await DatabaseSeeder.seedIfEmpty();
 
   runApp(
     MultiProvider(
