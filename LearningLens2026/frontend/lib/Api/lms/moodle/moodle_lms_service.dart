@@ -5,6 +5,7 @@ import 'package:learninglens_app/Api/lms/lms_interface.dart';
 import 'package:learninglens_app/beans/assignment.dart';
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/grade.dart';
+import 'package:learninglens_app/beans/iep.dart';
 import 'package:learninglens_app/beans/lesson_plan.dart';
 import 'package:learninglens_app/beans/moodle_rubric.dart';
 import 'package:learninglens_app/beans/override.dart';
@@ -58,6 +59,10 @@ class MoodleLmsService implements LmsInterface {
   String? fullName;
   @override
   String? profileImage;
+  @override
+  String? gradeLevel;
+  @override
+  String? disability;
   @override
   List<Course>? courses;
   @override
@@ -115,12 +120,17 @@ class MoodleLmsService implements LmsInterface {
 
     // 3) Parse user info
     final userData = jsonDecode(userinforesponse.body) as Map<String, dynamic>;
+
+    print("User Data $userData");
+
     userName = userData['username'];
     firstName = userData['firstname'];
     lastName = userData['lastname'];
     siteName = userData['sitename'];
     fullName = userData['fullname'];
     profileImage = userData['userpictureurl'];
+    gradeLevel = userData['gradeLevel'];
+    disability = userData['disability'];
 
     final userId = userData['userid'];
     if (userId != null) {
@@ -233,6 +243,8 @@ class MoodleLmsService implements LmsInterface {
     lastName = null;
     siteName = null;
     fullName = null;
+    gradeLevel = null;
+    disability = null;
     profileImage = null;
     courses = [];
   }
@@ -1061,6 +1073,54 @@ class MoodleLmsService implements LmsInterface {
       return QuizOverride.empty().fromMoodleJson(responseData);
     } else {
       throw Exception("Failed to create quiz override: ${response.body}");
+    }
+  }
+
+  @override
+  Future<IEP> addIEPOverride(
+      {required int assignid,
+      int? userId,
+      int? groupId,
+      String? disability,
+      String? gradeLevel,
+      String? studentKnowledge,
+      String? iep,
+      int? courseId}) async {
+    if (_userToken == null) throw StateError('User not logged in to Moodle');
+
+    final url = Uri.parse('$apiURL$serverUrl');
+
+    // Dynamically build request body, removing null values
+    final Map<String, String> body = {
+      'wstoken': _userToken!,
+      'wsfunction': 'local_learninglens_add_essay_override',
+      'moodlewsrestformat': 'json',
+      'assignid': assignid.toString(),
+    };
+
+    // Add only non-null fields
+    if (userId != null) body['userid'] = userId.toString();
+    if (groupId != null) body['groupid'] = groupId.toString();
+    if (disability != null) {
+      body['disability'] = disability.toString();
+    }
+    if (gradeLevel != null) body['gradeLevel'] = gradeLevel.toString();
+    if (studentKnowledge != null)
+      body['studentKnowledge'] = studentKnowledge.toString();
+    if (iep != null) body['iep'] = iep.toString();
+    if (courseId != null) body['courseId'] = courseId.toString();
+
+    final response = await ApiService().httpPost(url, body: body);
+
+    final responseData = json.decode(response.body);
+
+    if (response.statusCode == 200 && responseData is Map<String, dynamic>) {
+      print(responseData);
+      IEP iep = new IEP(overrideId: 0);
+      return iep;
+      //return 'Override: ${responseData['override_id']}';
+    } else {
+      throw Exception("Failed to create essay override: ${response.body}");
     }
   }
 

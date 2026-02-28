@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:learninglens_app/beans/assignment.dart';
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/grade.dart';
+import 'package:learninglens_app/beans/iep.dart';
 import 'package:learninglens_app/beans/moodle_rubric.dart';
 import 'package:learninglens_app/beans/override.dart';
 import 'package:learninglens_app/beans/participant.dart';
@@ -30,6 +31,9 @@ abstract class LmsInterface {
   List<Course>? courses;
   UserRole? role;
   List<Override>? overrides;
+
+  String? gradeLevel;
+  String? disability;
 
   // Authentication/Login methods
   Future<void> login(String username, String password, String baseURL);
@@ -145,5 +149,15 @@ abstract class LmsInterface {
       int? cutoffDate,
       int? timelimit,
       int? sortorder,
+      int? courseId});
+
+  Future<IEP> addIEPOverride(
+      {required int assignid,
+      int? userId,
+      int? groupId,
+      String? disability,
+      String? gradeLevel,
+      String? studentKnowledge,
+      String? iep,
       int? courseId});
 }
