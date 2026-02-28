@@ -9,6 +9,7 @@ import 'package:learninglens_app/Views/course_list.dart';
 import 'package:learninglens_app/Views/essay_assistant.dart';
 import 'package:learninglens_app/Views/essays_view.dart';
 import 'package:learninglens_app/Views/g_lesson_plan.dart';
+import 'package:learninglens_app/Views/gamification_menu.dart';
 import 'package:learninglens_app/Views/iep_page.dart';
 import 'package:learninglens_app/Views/lesson_plans.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
@@ -317,9 +318,12 @@ class TeacherDashboard extends StatelessWidget {
         'icon': Icons.quiz_outlined
       },
       {
-        'title': 'Create Game',
-        'description': 'Create games for students to learn while having fun.',
-        'onPressed': () => Navigator.pushNamed(context, '/gamification'),
+        'title': 'Games Feature Menu',
+        'description': 'Create games or view current games here.',
+        'onPressed': () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => GamificationMenu()),
+        ),
         'icon': Icons.videogame_asset_outlined
       },
       {

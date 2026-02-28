@@ -24,7 +24,8 @@ import 'package:learninglens_app/Api/llm/enum/llm_enum.dart';
 import 'package:learninglens_app/Api/llm/local_llm_service.dart'; // local llm
 
 class GamificationView extends StatefulWidget {
-  const GamificationView({super.key});
+  final bool viewGames;
+  const GamificationView({super.key, required this.viewGames});
 
   @override
   State<GamificationView> createState() => _GamificationViewState();
@@ -49,6 +50,13 @@ class _GamificationViewState extends State<GamificationView> {
   final Map<int, String> _studentNameCache = {};
   bool _isClearingAssignments = false;
   bool _coursesLoaded = false;
+
+  // --- Gamification mechanics (MVP) ---
+  int _questionCount = 10;
+  int _timedRoundSeconds = 20;
+  bool _adaptiveDifficulty = false;
+  String _selectedMode = 'SOLO'; // SOLO | TEAM
+  int _teamCount = 2;
 
   @override
   void initState() {
@@ -144,7 +152,7 @@ class _GamificationViewState extends State<GamificationView> {
             ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: isTeacher ? _buildTeacherUI(context) : _buildStudentUI(),
+        child: (isTeacher && !widget.viewGames) ? _buildTeacherUI(context) : _buildStudentUI(),
       ),
     );
   }
@@ -236,7 +244,154 @@ class _GamificationViewState extends State<GamificationView> {
             }).toList(),
           ),
           const SizedBox(height: 30),
-          const Text('Select LLM Model:', style: TextStyle(fontSize: 18)),
+          
+          const SizedBox(height: 30),
+          const Text('Game Mechanics:', style: TextStyle(fontSize: 18)),
+          const SizedBox(height: 10),
+          // Timed rounds
+          Row(
+            children: [
+              const Icon(Icons.timer_outlined),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Timed rounds (seconds per question): $_timedRoundSeconds'),
+                    Slider(
+                      value: _timedRoundSeconds.toDouble(),
+                      min: 0,
+                      max: 60,
+                      divisions: 12,
+                      label: _timedRoundSeconds == 0 ? 'Off' : '$_timedRoundSeconds s',
+                      onChanged: (v) {
+                        setState(() {
+                          _timedRoundSeconds = v.round();
+                          _gameNeedsRefresh = true;
+                          _isGameCreated = false;
+                        });
+                      },
+                    ),
+                    const Text(
+                      'Tip: Set to 0 to disable timing.',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Question count
+          Row(
+            children: [
+              const Icon(Icons.format_list_numbered),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Number of questions: $_questionCount'),
+                    Slider(
+                      value: _questionCount.toDouble(),
+                      min: 5,
+                      max: 20,
+                      divisions: 3,
+                      label: '$_questionCount',
+                      onChanged: (v) {
+                        setState(() {
+                          _questionCount = v.round();
+                          _gameNeedsRefresh = true;
+                          _isGameCreated = false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Adaptive difficulty
+          SwitchListTile(
+            title: const Text('Difficulty adjustment (adaptive)'),
+            subtitle: const Text('Automatically gets harder/easier based on student performance.'),
+            value: _adaptiveDifficulty,
+            onChanged: (val) {
+              setState(() {
+                _adaptiveDifficulty = val;
+                _gameNeedsRefresh = true;
+                _isGameCreated = false;
+              });
+            },
+          ),
+          const SizedBox(height: 10),
+          // Team/Solo mode
+          const Text('Mode:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 10,
+            children: [
+              ChoiceChip(
+                label: const Text('Solo'),
+                selected: _selectedMode == 'SOLO',
+                onSelected: (_) {
+                  setState(() {
+                    _selectedMode = 'SOLO';
+                    _gameNeedsRefresh = true;
+                    _isGameCreated = false;
+                  });
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Team'),
+                selected: _selectedMode == 'TEAM',
+                onSelected: (_) {
+                  setState(() {
+                    _selectedMode = 'TEAM';
+                    _gameNeedsRefresh = true;
+                    _isGameCreated = false;
+                  });
+                },
+              ),
+            ],
+          ),
+          if (_selectedMode == 'TEAM') ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.groups_2_outlined),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Number of teams: $_teamCount'),
+                      Slider(
+                        value: _teamCount.toDouble(),
+                        min: 2,
+                        max: 6,
+                        divisions: 4,
+                        label: '$_teamCount',
+                        onChanged: (v) {
+                          setState(() {
+                            _teamCount = v.round();
+                            _gameNeedsRefresh = true;
+                            _isGameCreated = false;
+                          });
+                        },
+                      ),
+                      const Text(
+                        'Teams are assigned during game assignment (random) in this MVP.',
+                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+const Text('Select LLM Model:', style: TextStyle(fontSize: 18)),
           const SizedBox(height: 10),
           DropdownButton<LlmType>(
               value: _selectedLLM,
@@ -327,13 +482,13 @@ class _GamificationViewState extends State<GamificationView> {
                       _selectedLLM == LlmType.GROK ||
                       _selectedLLM == LlmType.LOCAL) {
                     if (_selectedGameType == 'Quiz Game') {
-                      response = await generateGameFromText(text, aiModel);
+                      response = await generateGameFromText(text, aiModel, difficulty: _selectedDifficulty ?? 'Medium', adaptiveDifficulty: _adaptiveDifficulty, questionCount: _questionCount);
                     } else if (_selectedGameType == 'Matching') {
                       response =
-                          await generateMatchingPairsFromText(text, aiModel);
+                          await generateMatchingPairsFromText(text, aiModel, pairCount: _questionCount);
                     } else if (_selectedGameType == 'Flashcards') {
                       response =
-                          await generateFlashcardsFromText(text, aiModel);
+                          await generateFlashcardsFromText(text, aiModel, cardCount: _questionCount);
                     } else {
                       throw Exception("Unknown game type: $_selectedGameType");
                     }
@@ -394,6 +549,13 @@ class _GamificationViewState extends State<GamificationView> {
                         case 'Quiz Game':
                           previewContent = QuizGame(
                             questions: gameData,
+                            settings: {
+                              'questionCount': _questionCount,
+                              'timedRoundSeconds': _timedRoundSeconds,
+                              'difficulty': _selectedDifficulty ?? 'Medium',
+                              'adaptiveDifficulty': _adaptiveDifficulty,
+                              'mode': _selectedMode,
+                            },
                             onComplete: (_) {},
                             previewMode: true,
                           );
@@ -619,8 +781,12 @@ class _GamificationViewState extends State<GamificationView> {
                       Widget gameView;
                       switch (type) {
                         case GameType.QUIZ:
+                          final settings = (content['settings'] is Map)
+                              ? Map<String, dynamic>.from(content['settings'])
+                              : null;
                           gameView = QuizGame(
                             questions: data,
+                            settings: settings,
                             onComplete: (result) {
                               _recordGameResult(game, result);
                             },
@@ -679,12 +845,21 @@ class _GamificationViewState extends State<GamificationView> {
   /// { "question": "...", "options": ["A","B","C","D"], "answer": <index> }
   Future<List<Map<String, dynamic>>> generateGameFromText(
       String text, LLM aiModel,
-      {int questionCount = 5}) async {
+      {int questionCount = 10, String difficulty = 'Medium', bool adaptiveDifficulty = false}) async {
     final systemPrompt =
-        'You are an educational game designer. From the given text, generate exactly $questionCount multiple-choice questions. '
-        'Respond with a VALID JSON ARRAY ONLY (no extra text) where each item has: '
-        '{"question": "...", "options": ["optA", "optB", "optC", "optD"], "answer": <index>} '
-        'The "answer" should be the index (0-3) of the correct option.\n\n'
+        'You are an educational game designer. Use the given class material to create a classroom-style rapid-round quiz. '
+        'Return a VALID JSON ARRAY ONLY (no markdown, no extra text). Each item MUST have: '
+        '{"question": "...", "options": ["optA","optB","optC","optD"], "answer": <index>, "difficulty": "easy|medium|hard"}. '
+        'Rules: '
+        '- Options must be plausible and not trivially eliminable. '
+        '- The "answer" is the index (0-3) of the correct option. '
+        '- Use the difficulty label to reflect cognitive demand (recall vs application vs synthesis). '
+        '- Avoid student-cheating: do not copy full passages verbatim from the source.\n\n'
+        'If adaptiveDifficulty=true, generate a balanced set across easy/medium/hard. '
+        'If adaptiveDifficulty=false, prioritize the requested difficulty level.\n\n'
+        'Requested difficulty: $difficulty\n'
+        'adaptiveDifficulty: $adaptiveDifficulty\n'
+        'Question count: $questionCount\n\n'
         'Input: $text';
 
     final raw = await aiModel.postToLlm(systemPrompt);
@@ -903,6 +1078,15 @@ $text
     final contentPayload = jsonEncode({
       'gameType': gameType,
       'data': _generatedGameData ?? [],
+      'settings': {
+        'questionCount': _questionCount,
+        'timedRoundSeconds': _timedRoundSeconds,
+        'difficulty': _selectedDifficulty ?? 'Medium',
+        'adaptiveDifficulty': _adaptiveDifficulty,
+        'mode': _selectedMode,
+        'teamCount': _teamCount,
+        'sourceFileName': _selectedFile?.name,
+      }
     });
 
     try {
