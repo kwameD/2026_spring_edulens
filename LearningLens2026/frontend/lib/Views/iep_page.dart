@@ -187,26 +187,25 @@ class _IepPageState extends State<IepPage> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Individual Education Plans',
-        onRefresh: () {
-          // _loadCourses();
-        },
-        userprofileurl: LmsFactory.getLmsService().profileImage ?? '',
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 0, 0, 0),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
+        appBar: CustomAppBar(
+          title: 'Individual Education Plans',
+          onRefresh: () {
+            // _loadCourses();
+          },
+          userprofileurl: LmsFactory.getLmsService().profileImage ?? '',
+        ),
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 400,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(20, 0, 0, 0),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Individual Education Plan Page',
+                      'Individual Education Plan',
                       style:
                           TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
                     ),
@@ -523,7 +522,7 @@ class _IepPageState extends State<IepPage> {
                                             ),
                                         ],
                                       )
-                                    : const Text('Recommend IEP')))),
+                                    : const Text('IEP Preview')))),
 
                     SizedBox(
                         width: 350,
@@ -668,6 +667,7 @@ class _IepPageState extends State<IepPage> {
                               courseId!,
                               selectedCourseName!,
                               userId!,
+                              fullname!,
                               selectedDisability!,
                               iepSummary,
                               iep!);
@@ -705,41 +705,100 @@ class _IepPageState extends State<IepPage> {
                     ),
                   ],
                 ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Text(
-                        'Existing IEPs',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      Container(
-                        margin: EdgeInsets.only(right: 20),
-                        width: constraints.maxWidth * 0.7,
-                        height: 830,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(0.0),
-                        ),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: screenWidth < 1024
-                                ? _buildSimplifiedTable(context)
-                                : _buildFullTable(context),
-                          ),
-                        ),
-                      ),
-                    ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Existing IEPs',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
+                  Expanded(
+                    child: StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('IEP')
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return Center(child: CircularProgressIndicator());
+                        }
+
+                        final docs = snapshot.data!.docs;
+
+                        return SingleChildScrollView(
+                          scrollDirection:
+                              Axis.horizontal, // allows horizontal scrolling
+                          child: SingleChildScrollView(
+                            scrollDirection:
+                                Axis.vertical, // allows vertical scrolling
+                            child: DataTable(
+                              columnSpacing: 40,
+                              headingRowColor: MaterialStateProperty.all(
+                                Colors.grey.shade200,
+                              ),
+                              columns: const [
+                                DataColumn(label: Text('Student Name')),
+                                DataColumn(label: Text('Course Name')),
+                                DataColumn(label: Text('Grade Level')),
+                                DataColumn(label: Text('Disability')),
+                                DataColumn(label: Text('Score')),
+                                DataColumn(label: Text('Action')),
+                              ],
+                              rows: docs.map((doc) {
+                                final data = doc.data() as Map<String, dynamic>;
+
+                                return DataRow(
+                                  cells: [
+                                    DataCell(Text(data['fullName'] ?? '')),
+                                    DataCell(Text(data['courseName'] ?? '')),
+                                    DataCell(Text(data['gradeLevel'] ?? '')),
+                                    DataCell(Text(data['disability'] ?? '')),
+                                    DataCell(Text(
+                                      data['score']?.toString() ?? '',
+                                    )),
+                                    DataCell(
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          final docId = doc.id;
+
+                                          print("Viewing IEP: $docId");
+
+                                          // Option 1: Navigate to a detail page
+                                          // Navigator.push(
+                                          //   context,
+                                          //   MaterialPageRoute(
+                                          //     builder: (_) => IEPDetailPage(
+                                          //       documentId: docId,
+                                          //     ),
+                                          //   ),
+                                          // );
+
+                                          // Option 2 (alternative): Show dialog instead
+                                          // showDialog(...)
+                                        },
+                                        child: const Text("View"),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ));
   }
 
   // Build the simplified table for smaller screens
@@ -925,8 +984,15 @@ class _IepPageState extends State<IepPage> {
     );
   }
 
-  Future<void> addIEP(String gradeLevel, int courseId, String courseName,
-      int userId, String disability, String iepSummary, String iep) async {
+  Future<void> addIEP(
+      String gradeLevel,
+      int courseId,
+      String courseName,
+      int userId,
+      String fullName,
+      String disability,
+      String iepSummary,
+      String iep) async {
     print(
         "Add IEP: grade level: $gradeLevel, courseId $courseId, userId $userId, disability $disability, iep summary $iepSummary, iep $iep");
     try {
@@ -934,6 +1000,7 @@ class _IepPageState extends State<IepPage> {
       final user = <String, dynamic>{
         "courseId": courseId,
         "userId": userId,
+        "fullName": fullname,
         "gradeLevel": gradeLevel,
         "disability": disability,
         "courseName": courseName,
