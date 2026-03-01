@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import "package:flutter/material.dart";
@@ -29,6 +30,7 @@ class IepPage extends StatefulWidget {
 }
 
 class _IepPageState extends State<IepPage> {
+  final db = FirebaseFirestore.instance;
   bool? isChecked1 = false;
   bool? isChecked2 = false;
   String? selectedCourse;
@@ -661,8 +663,14 @@ class _IepPageState extends State<IepPage> {
                       padding: EdgeInsets.only(top: 10, left: 160, bottom: 20),
                       child: ElevatedButton(
                         onPressed: () async {
-                          await addIEP(selectedGradeLevel!, 0, 0, userId!,
-                              selectedDisability!, iepSummary, iep!);
+                          await addIEP(
+                              selectedGradeLevel!,
+                              courseId!,
+                              selectedCourseName!,
+                              userId!,
+                              selectedDisability!,
+                              iepSummary,
+                              iep!);
                         },
                         // selectedAssignment != null &&
                         //         userId != null &&
@@ -917,23 +925,47 @@ class _IepPageState extends State<IepPage> {
     );
   }
 
-  Future<void> addIEP(String gradeLevel, int courseId, int iepId, int userId,
-      String disability, String iepSummary, String iep) async {
+  Future<void> addIEP(String gradeLevel, int courseId, String courseName,
+      int userId, String disability, String iepSummary, String iep) async {
     print(
-        "Add IEP: grade level: $gradeLevel, courseId $courseId, iepid $iepId, userId $userId, disability $disability, iep summary $iepSummary, iep $iep");
+        "Add IEP: grade level: $gradeLevel, courseId $courseId, userId $userId, disability $disability, iep summary $iepSummary, iep $iep");
     try {
+      // Create a map of data
+      final user = <String, dynamic>{
+        "courseId": courseId,
+        "userId": userId,
+        "gradeLevel": gradeLevel,
+        "disability": disability,
+        "courseName": courseName,
+        "iepSummary": iepSummary,
+        "iep": iep,
+      };
+
+      // IEP user = new IEP(0, courseId, iepId, userId, gradeLevel, disability,
+      //     '', iepSummary, iep);
+
+      // Add a new document with an auto-generated ID
+
       // creates an override in moodle
-      await LmsFactory.getLmsService().addIEPOverride(
-          assignid: iepId,
-          courseId: courseId,
-          userId: userId,
-          disability: disability,
-          studentKnowledge: iepSummary,
-          iep: iep,
-          gradeLevel: gradeLevel);
+      // await LmsFactory.getLmsService().addIEPOverride(
+      //     assignid: iepId,
+      //     courseId: courseId,
+      //     userId: userId,
+      //     disability: disability,
+      //     studentKnowledge: iepSummary,
+      //     iep: iep,
+      //     gradeLevel: gradeLevel);
 
       // reloads and fetches the data from moodle
-      await LmsFactory.getLmsService().refreshOverrides();
+      // await LmsFactory.getLmsService().refreshOverrides();
+
+      db
+          .collection("IEP")
+          .add(user)
+          .then((DocumentReference doc) =>
+              print('DocumentSnapshot added with ID: ${doc.id}'))
+          .catchError((error) => print("Failed to add user: $error"));
+
       setState(() {
         // updates the user interface
         overrides = LmsFactory.getLmsService().overrides;

@@ -53,6 +53,7 @@ dependencies:
   flutter_quill_delta_from_html: ^1.5.3
   markdown: ^7.3.0
   firebase_core: ^4.4.0
+  cloud_firestore: ^6.1.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
