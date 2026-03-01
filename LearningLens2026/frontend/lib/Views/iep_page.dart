@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import "package:flutter/material.dart";
+import 'package:intl/intl.dart';
 import 'package:learninglens_app/Api/llm/DeepSeek_api.dart';
 import 'package:learninglens_app/Api/llm/enum/llm_enum.dart';
 import 'package:learninglens_app/Api/llm/grok_api.dart';
@@ -120,26 +121,6 @@ class _IepPageState extends State<IepPage> {
     }
   }
 
-  void _selectCutOffDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: epochTime2 != null
-          ? DateTime.fromMillisecondsSinceEpoch(epochTime2!.toInt() * 1000)
-          : epochTime != null
-              ? DateTime.fromMillisecondsSinceEpoch(epochTime! * 1000)
-              : selectedAssignment!.dueDate ?? DateTime.now(),
-      firstDate: epochTime != null
-          ? DateTime.fromMillisecondsSinceEpoch(epochTime! * 1000)
-          : selectedAssignment!.dueDate ?? DateTime.now(),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null && picked != DateTime.now()) {
-      setState(() {
-        epochTime2 = (picked.millisecondsSinceEpoch / 1000).round();
-      });
-    }
-  }
-
   // void _getAssignmentOverride() async { ***** Not used *****
   //   await MoodleLmsService().getAssignmentOverrides();
   // }
@@ -216,7 +197,6 @@ class _IepPageState extends State<IepPage> {
                     ),
                     DropdownMenu<Course>(
                       label: Text('Course'),
-                      // helperText: 'Course',
                       hintText: 'Select Course',
                       width: 350,
                       dropdownMenuEntries:
@@ -230,17 +210,9 @@ class _IepPageState extends State<IepPage> {
                         setState(() {
                           selectedCourseName = selectedValue?.fullName;
                           courseId = selectedValue!.id;
-                          //selectedAssignment = null;
-                          userId = null;
                         });
                         participants =
                             handleSelection(selectedValue?.id.toString());
-                        // if (selectedValue != null) {
-                        //   assignments = handleAssessmentSelection(
-                        //       int.parse(selectedValue));
-                        // } else {
-                        //   print('Selected Value is Null');
-                        // }
                         resetForm(true);
                       },
                     ),
@@ -324,34 +296,44 @@ class _IepPageState extends State<IepPage> {
                         });
                       },
                     ),
-                    // DropdownButton<String>(
-                    //   value: selectedGradeLevel,
-                    //   items: gradeLevel
-                    //       .map((item) => DropdownMenuItem<String>(
-                    //             value: item,
-                    //             child: Text(item),
-                    //           ))
-                    //       .toList(),
-                    //   onChanged: (item) =>
-                    //       setState(() => selectedGradeLevel = item),
-                    // ),
-
-                    // DropdownMenu<String>(
-                    //   dropdownMenuEntries: gradeLevel
-                    //       .map((value) => DropdownMenuEntry<String>(
-                    //             value: value,
-                    //             label: value,
-                    //           ))
-                    //       .toList(),
-                    //   initialSelection:
-                    //       gradeLevel.isNotEmpty ? gradeLevel.first : null,
-                    //   onSelected: (String? value) {
-                    //     setState(() {
-                    //       selectedGradeLevel = value;
-                    //     });
-                    //   },
-                    //   hintText: 'Select an option',
-                    // ),
+                    SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: Opacity(
+                            opacity:
+                                selectedAssignment != null && userId != null
+                                    ? 1
+                                    : .5,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                  vertical: 10, horizontal: 20),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.black),
+                              ),
+                              child: Text(
+                                epochTime == null
+                                    ? ""
+                                    : DateFormat.yMd().format(
+                                        DateTime.fromMillisecondsSinceEpoch(
+                                            epochTime! * 1000)),
+                                style: TextStyle(fontSize: 20),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          flex: 1,
+                          child: ElevatedButton(
+                            onPressed: () => _selectDate(context),
+                            child: Text('Select Due Date'),
+                          ),
+                        ),
+                      ],
+                    ),
                     // FutureBuilder<List<Assessment>>(
                     //     future: assignments,
                     //     builder: (BuildContext context,
@@ -476,54 +458,53 @@ class _IepPageState extends State<IepPage> {
                           )),
                     ],
                     SizedBox(
-                        width: 350,
-                        child: Align(
-                            alignment: AlignmentGeometry.topRight,
-                            child: ElevatedButton(
-                                onPressed: userId != null &&
-                                        iepSummary.isNotEmpty &&
-                                        selectedLLM != null &&
-                                        selectedGradeLevel != null &&
-                                        selectedDisability != null &&
-                                        selectedCourseName != null
-                                    ? () => recommendIEP()
-                                    : null,
-                                child: _isAIRecommending
-                                    ? Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                                strokeWidth: 2),
-                                          ),
-                                          if (selectedLLM == LlmType.LOCAL)
-                                            TextButton(
-                                              onPressed: () async {
-                                                bool decision =
-                                                    await LocalLLMService()
-                                                        .showCancelConfirmationDialog();
-                                                if (decision) {
-                                                  canceled = true;
-                                                }
-                                              },
-                                              style: TextButton.styleFrom(
-                                                foregroundColor:
-                                                    Colors.redAccent,
-                                              ),
-                                              child: const Text(
-                                                'Cancel Generation',
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight:
-                                                        FontWeight.w500),
-                                              ),
-                                            ),
-                                        ],
-                                      )
-                                    : const Text('IEP Preview')))),
-
+                      width: 350,
+                      child: Align(
+                        alignment: AlignmentGeometry.topRight,
+                        child: ElevatedButton(
+                          onPressed: userId != null &&
+                                  iepSummary.isNotEmpty &&
+                                  selectedLLM != null &&
+                                  selectedGradeLevel != null &&
+                                  selectedDisability != null &&
+                                  selectedCourseName != null
+                              ? () => recommendIEP()
+                              : null,
+                          child: _isAIRecommending
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    ),
+                                    if (selectedLLM == LlmType.LOCAL)
+                                      TextButton(
+                                        onPressed: () async {
+                                          bool decision = await LocalLLMService()
+                                              .showCancelConfirmationDialog();
+                                          if (decision) {
+                                            canceled = true;
+                                          }
+                                        },
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: Colors.redAccent,
+                                        ),
+                                        child: const Text(
+                                          'Cancel Generation',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                  ],
+                                )
+                              : const Text('IEP Preview'),
+                        ),
+                      ),
+                    ),
                     SizedBox(
                         width: 350,
                         child: TextField(
@@ -542,122 +523,6 @@ class _IepPageState extends State<IepPage> {
                           maxLines: 10,
                         )),
                     SizedBox(height: 10),
-                    // SizedBox(
-                    //     width: 350,
-                    //     child: TextField(
-                    //       controller: _attemptsController,
-                    //       onChanged: (value) => setState(() {
-                    //         int? val = int.tryParse(value);
-                    //         if (val != null && (val < 0 || val > 10)) {
-                    //           _attemptsController.value = TextEditingValue(
-                    //               text: val.clamp(0, 10).toString());
-                    //           return;
-                    //         }
-                    //         attempts = int.tryParse(value)?.clamp(0, 10);
-                    //       }),
-                    //       keyboardType: TextInputType.number,
-                    //       inputFormatters: [
-                    //         FilteringTextInputFormatter.digitsOnly
-                    //       ],
-                    //       enabled: selectedAssignment?.type == "quiz",
-                    //       decoration: InputDecoration(
-                    //           alignLabelWithHint: true,
-                    //           labelText: "Attempts (0 for Unlimited to 10)",
-                    //           border: OutlineInputBorder(
-                    //             borderRadius: BorderRadius.circular(10),
-                    //           )),
-                    //       textAlignVertical: TextAlignVertical.top,
-                    //     )),
-                    // SizedBox(height: 10),
-                    // SizedBox(height: 10),
-                    // Column(
-                    //   children: [
-                    // Row(
-                    //   children: [
-                    //     Opacity(
-                    //         opacity:
-                    //             selectedAssignment != null && userId != null
-                    //                 ? 1
-                    //                 : .5,
-                    //         child: Container(
-                    //           width: 250,
-                    //           margin: EdgeInsets.only(right: 20),
-                    //           padding: EdgeInsets.symmetric(
-                    //               vertical: 10, horizontal: 20),
-                    //           decoration: BoxDecoration(
-                    //             borderRadius: BorderRadius.circular(8),
-                    //             border: Border.all(color: Colors.black),
-                    //           ),
-                    //           child: Text(
-                    //             epochTime == null
-                    //                 ? ""
-                    //                 : DateFormat.yMd().format(
-                    //                     DateTime.fromMillisecondsSinceEpoch(
-                    //                         epochTime! * 1000)),
-                    //             style: TextStyle(fontSize: 20),
-                    //           ),
-                    //         )),
-                    //     SizedBox(
-                    //         width: 180,
-                    //         child: ElevatedButton(
-                    //           onPressed: selectedAssignment != null &&
-                    //                   userId != null
-                    //               ? () => _selectDate(context)
-                    //               : null, // Correct usage of named parameter `onTap`
-                    //           child: Text(
-                    //             'Select Due Date',
-                    //           ),
-                    //         )),
-                    //   ],
-                    // ),
-                    // SizedBox(height: 20),
-                    // Row(
-                    //   children: [
-                    //     Opacity(
-                    //         opacity: selectedAssignment?.type == "essay" &&
-                    //                 userId != null
-                    //             ? 1
-                    //             : .5,
-                    //         child: Container(
-                    //           width: 250,
-                    //           margin: EdgeInsets.only(right: 20),
-                    //           padding: EdgeInsets.symmetric(
-                    //               vertical: 10, horizontal: 20),
-                    //           decoration: BoxDecoration(
-                    //             borderRadius: BorderRadius.circular(8),
-                    //             border: Border.all(color: Colors.black),
-                    //           ),
-                    //           child: Text(
-                    //             epochTime2 == null
-                    //                 ? ""
-                    //                 : DateFormat.yMd().format(
-                    //                     DateTime.fromMillisecondsSinceEpoch(
-                    //                         epochTime2! * 1000)),
-                    //             style: TextStyle(fontSize: 20),
-                    //           ),
-                    //         )),
-                    //     SizedBox(
-                    //         width: 180,
-                    //         child: ElevatedButton(
-                    //           onPressed: selectedAssignment?.type ==
-                    //                       "essay" &&
-                    //                   userId != null
-                    //               ? () => _selectCutOffDate(context)
-                    //               : null, // Correct usage of named parameter `onTap`
-                    //           child: Text(
-                    //             'Select Deadline Date',
-                    //           ),
-                    //         )),
-                    //   ],
-                    // ),
-                    // SizedBox(height: 10),
-                    // Text(
-                    //   'Cutoff Date: Last day it can be submitted late',
-                    //   style: TextStyle(fontSize: 14, color: Colors.grey),
-                    // ),
-                    //   ],
-                    // ),
-                    SizedBox(height: 10),
                     Container(
                       padding: EdgeInsets.only(top: 10, left: 160, bottom: 20),
                       child: ElevatedButton(
@@ -671,35 +536,8 @@ class _IepPageState extends State<IepPage> {
                               selectedDisability!,
                               iepSummary,
                               iep!);
+                          resetForm(false);
                         },
-                        // selectedAssignment != null &&
-                        //         userId != null &&
-                        //         epochTime != null &&
-                        //         (selectedAssignment?.type != "quiz" ||
-                        //             attempts != null) &&
-                        //         (selectedAssignment?.type != "essay" ||
-                        //             epochTime2 != null)
-                        //     ?
-                        // () async {
-                        // if (selectedAssignment?.type == 'quiz') {
-                        //   await quizOver(
-                        //       epochTime!,
-                        //       int.parse(selectedCourse!),
-                        //       selectedAssignment!.id,
-                        //       userId!,
-                        //       attempts!);
-                        // } else if (selectedAssignment?.type ==
-                        //     'essay') {
-                        //   await essayOver(
-                        //       epochTime!,
-                        //       int.parse(selectedCourse!),
-                        //       selectedAssignment!.id,
-                        //       userId!,
-                        //       epochTime2!);
-                        //}
-                        //resetForm(false),
-                        // }
-                        //: null,
                         child: Text('Submit'),
                       ),
                     ),
@@ -801,86 +639,6 @@ class _IepPageState extends State<IepPage> {
         ));
   }
 
-  // Build the simplified table for smaller screens
-  DataTable _buildSimplifiedTable(BuildContext context) {
-    return DataTable(
-      headingRowColor: MaterialStateProperty.all(
-          Theme.of(context).colorScheme.primary.withOpacity(.3)),
-      columns: [
-        DataColumn(
-            label: Text('Student Name',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-        DataColumn(
-            label: Text('Course Name',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-        DataColumn(
-            label: Text('Actions',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-      ],
-      rows: (overrides ?? [])
-          .asMap()
-          .map((index, override) {
-            return MapEntry(
-                index,
-                DataRow(
-                  color: WidgetStateProperty.resolveWith<Color?>(
-                      (Set<WidgetState> states) {
-                    return index % 2 == 0
-                        ? Theme.of(context)
-                            .colorScheme
-                            .primaryContainer
-                            .withOpacity(.55)
-                        : null; // Use the default value.
-                  }),
-                  cells: [
-                    DataCell(Text(override.fullname)),
-                    DataCell(Text(override.courseName)),
-                    DataCell(
-                      ElevatedButton(
-                        onPressed: () => _showDetailsDialog(context, override),
-                        child: Text("View"),
-                      ),
-                    ),
-                  ],
-                ));
-          })
-          .values
-          .toList(),
-    );
-  }
-
-  // Build the full table for larger screens
-  DataTable _buildFullTable(BuildContext context) {
-    return DataTable(
-      headingRowColor: MaterialStateProperty.all(
-          Theme.of(context).colorScheme.primary.withOpacity(.3)),
-      columns: [
-        DataColumn(
-            label: Text('Student Name',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-        DataColumn(
-            label: Text('Course Name',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-        DataColumn(
-            label: Text('Grade Level',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-        DataColumn(
-            label: Text('Disability',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-        DataColumn(
-            label: Text('Attempts',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-      ],
-      rows: (overrides ?? [])
-          .asMap()
-          .map((index, override) {
-            return MapEntry(index, buildDataRow(override, index));
-          })
-          .values
-          .toList(),
-    );
-  }
-
   List<Course>? getAllCourses() {
     List<Course>? result;
     result = LmsFactory.getLmsService().courses;
@@ -948,42 +706,6 @@ class _IepPageState extends State<IepPage> {
     });
   }
 
-  // Future<void> quizOver(
-  //     int epochTime, int courseId, int quizId, int userId, int attempts) async {
-  //   await LmsFactory.getLmsService().addQuizOverride(
-  //       quizId: quizId,
-  //       courseId: courseId,
-  //       userId: userId,
-  //       timeClose: epochTime,
-  //       attempts: attempts);
-  //   await LmsFactory.getLmsService().refreshOverrides();
-  //   setState(() {
-  //     overrides = LmsFactory.getLmsService().overrides;
-  //     overrides?.sort((a, b) => a.fullname.compareTo(b.fullname));
-  //   });
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     const SnackBar(content: Text("Successfully created quiz IEP.")),
-  //   );
-  // }
-
-  Future<void> essayOver(int epochTime, int courseId, int essayId, int userId,
-      int epochTime2) async {
-    await LmsFactory.getLmsService().addEssayOverride(
-        assignid: essayId,
-        courseId: courseId,
-        userId: userId,
-        dueDate: epochTime,
-        cutoffDate: epochTime2);
-    await LmsFactory.getLmsService().refreshOverrides();
-    setState(() {
-      overrides = LmsFactory.getLmsService().overrides;
-      overrides?.sort((a, b) => a.fullname.compareTo(b.fullname));
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Successfully created essay IEP.")),
-    );
-  }
-
   Future<void> addIEP(
       String gradeLevel,
       int courseId,
@@ -1008,24 +730,6 @@ class _IepPageState extends State<IepPage> {
         "iep": iep,
       };
 
-      // IEP user = new IEP(0, courseId, iepId, userId, gradeLevel, disability,
-      //     '', iepSummary, iep);
-
-      // Add a new document with an auto-generated ID
-
-      // creates an override in moodle
-      // await LmsFactory.getLmsService().addIEPOverride(
-      //     assignid: iepId,
-      //     courseId: courseId,
-      //     userId: userId,
-      //     disability: disability,
-      //     studentKnowledge: iepSummary,
-      //     iep: iep,
-      //     gradeLevel: gradeLevel);
-
-      // reloads and fetches the data from moodle
-      // await LmsFactory.getLmsService().refreshOverrides();
-
       db
           .collection("IEP")
           .add(user)
@@ -1048,51 +752,12 @@ class _IepPageState extends State<IepPage> {
     }
   }
 
-  // String formatDate(String? dateString) {
-  //   if (dateString == null) {
-  //     return 'N/A';
-  //   }
-  //   DateFormat dateFormat = DateFormat('MMM d yyyy hh:mm a');
-  //   return dateFormat.format(DateTime.parse(dateString));
-  // }
-
-  DataRow buildDataRow(Override override, int index) {
-    return DataRow(
-      color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
-        return index % 2 == 0
-            ? Theme.of(context).colorScheme.primaryContainer.withOpacity(.55)
-            : null; // Use the default value.
-      }),
-      cells: [
-        DataCell(Text(override.fullname)),
-        DataCell(Text(override.courseName)),
-        DataCell(
-          Text(
-            "${override.assignmentName} (${override.type.toUpperCase()})",
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        DataCell(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                //"",
-                "Extended: ",
-                style: TextStyle(fontSize: 14),
-              ),
-              SizedBox(height: 4),
-              Text(
-                //"",
-                "Cut off: ",
-                style: TextStyle(fontSize: 14),
-              ),
-            ],
-          ),
-        ),
-        DataCell(Text(override.attempts?.toString() ?? 'N/A')),
-      ],
-    );
+  String formatDate(String? dateString) {
+    if (dateString == null) {
+      return 'N/A';
+    }
+    DateFormat dateFormat = DateFormat('MMM d yyyy hh:mm a');
+    return dateFormat.format(DateTime.parse(dateString));
   }
 
   Future<void> recommendIEP() async {
@@ -1123,38 +788,6 @@ class _IepPageState extends State<IepPage> {
     String prompt1 =
         "Write an IEP for student $fullname that has $selectedDisability, is in the $selectedGradeLevel, and lives in New York City for $selectedCourseName. This are the things the student already knowns in the subject: $iepSummary";
 
-    print("Promt $prompt1");
-
-    // String prompt =
-    //     'Perform an analysis on a student individualized education plan to customize the provided assignment for a student with accommodations.\n'
-    //     'Student Accommodations: "$text"\n'
-    //     'Assignment Name: "${selectedAssignment.name}"\n'
-    //     'Assignment Summary: "${selectedAssignment.description}"\n'
-    //     'Assignment Type: "${selectedAssignment.type}"\n'
-    //     'Assignment Due Date: "${selectedAssignment.dueDate}"\n'
-    //     'Provide a textual summary. Additionally, suggest a number of attempts to provide the student as an integer from 0 to 10, with 0 representing no limit on the number of attempts. '
-    //     'Finally, suggest both a new Due Date and Final Deadline that are after the original due date and the necessary accommodations. '
-    //     'Format dates in the format "MM/DD/YYYY". '
-    //     'Return your analysis as a JSON array where the textual summary is an object with key "Summary". '
-    //     'The suggested number of attempts should be returned as an object with key "Attempts". '
-    //     'The suggested Due Date should be returned as an object with key "Due Date". '
-    //     'The suggested Deadline should be returned as an object with key "Deadline". '
-    //     'An example of a properly formatted JSON array is:\n'
-    //     '[\n'
-    //     '{\n'
-    //     '"Summary": "A textual summary of the analysis."\n'
-    //     '},\n'
-    //     '{\n'
-    //     '"Attempts": 5\n'
-    //     '},\n'
-    //     '{\n'
-    //     '"Due Date": "10/31/2025"\n'
-    //     '},\n'
-    //     '{\n'
-    //     '"Deadline": "11/07/2025"\n'
-    //     '}\n'
-    //     ']\n';
-
     String summary = "";
     DateTime? due;
     DateTime? deadline;
@@ -1170,53 +803,6 @@ class _IepPageState extends State<IepPage> {
 
         summary = result;
         iep = result;
-
-        //String normalizedResult = result.trim();
-
-        // if (!canceled) {
-        //   // Remove markdown code block wrappers if present.
-        //   if (normalizedResult.startsWith("```json")) {
-        //     normalizedResult = normalizedResult.substring(7);
-        //   }
-        //   if (normalizedResult.endsWith("```")) {
-        //     normalizedResult =
-        //         normalizedResult.substring(0, normalizedResult.length - 3);
-        //   }
-        //   normalizedResult = normalizedResult.trim();
-        //   //print(normalizedResult);
-        //   var jsonData = json.decode(normalizedResult);
-        //   List<Map<String, dynamic>>? jsonList;
-        //   if (jsonData is List) {
-        //     jsonList = List<Map<String, dynamic>>.from(jsonData);
-        //     if (jsonList.isNotEmpty && jsonList[0].containsKey("Summary")) {
-        //       summary = jsonList[0]["Summary"].toString();
-        //     }
-        //     if (jsonList.length > 1 &&
-        //         selectedAssignment.type == "quiz" &&
-        //         jsonList[1].containsKey("Attempts")) {
-        //       newAttempts = jsonList[1]["Attempts"];
-        //     }
-        //     if (jsonList.length > 2 && jsonList[2].containsKey("Due Date")) {
-        //       due = DateFormat.yMd().tryParse(jsonList[2]["Due Date"]) ??
-        //           DateTime.now();
-        //     }
-        //     if (jsonList.length > 3 &&
-        //         selectedAssignment.type == "essay" &&
-        //         jsonList[3].containsKey("Deadline")) {
-        //       deadline = DateFormat.yMd().tryParse(jsonList[3]["Deadline"]) ??
-        //           DateTime.now();
-        //       if (due != null && deadline.isBefore(due)) {
-        //         deadline = due;
-        //       }
-        //     }
-        //   } else {
-        //     ScaffoldMessenger.of(context).showSnackBar(
-        //       const SnackBar(
-        //           content:
-        //               Text("AI analysis did not return a valid JSON array.")),
-        //     );
-        //   }
-        // }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error during AI analysis: $e")),
@@ -1227,14 +813,6 @@ class _IepPageState extends State<IepPage> {
       _isAIRecommending = false;
       setState(() {
         iepRecommendation.value = TextEditingValue(text: summary);
-        // _attemptsController.value = TextEditingValue(
-        //     text: newAttempts == null ? "" : newAttempts.toString());
-        // attempts = newAttempts;
-        // epochTime =
-        //     due == null ? null : (due.millisecondsSinceEpoch / 1000).round();
-        // epochTime2 = deadline == null
-        //     ? null
-        //     : (deadline.millisecondsSinceEpoch / 1000).round();
       });
     });
   }
