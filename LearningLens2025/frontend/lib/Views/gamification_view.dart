@@ -702,22 +702,22 @@ class _GamificationViewState extends State<GamificationView> {
       cleaned = match.group(0)!;
     }
 
-    final collection = FirebaseFirestore.instance.collection('GAME-${text.substring(0, 10)}');
+    final gamesCollection = FirebaseFirestore.instance.collection('Games');
 
     try {
       final parsedList = _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
         if (item is Map) return Map<String, dynamic>.from(item);
         throw Exception('Item is not an object');
       });
-      
-      // Store the generated quiz in the firestore DB
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-      for (var question in parsedList.indexed) {
-        String questionId = "Question-${question.$1}";
-        var docRef = collection.doc(questionId);
-        batch.set(docRef, question.$2);
-      }
-      await batch.commit();
+
+      List<String> allWords = text.split(" ");
+
+      String gameTitle = allWords.sublist(0, 3).join(" ");
+      String gameName = "Game - $gameTitle";
+      await gamesCollection.doc(gameName).set({
+        'title': gameTitle,
+        'questions': parsedList,
+      });
 
       print('✅ Game generated: $parsedList');
       return parsedList;

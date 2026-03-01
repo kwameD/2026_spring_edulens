@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
+import 'package:learninglens_app/Games/view_games_menu.dart';
 import 'package:learninglens_app/Views/gamification_view.dart';
 import 'package:learninglens_app/Views/leaderboard_view.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
@@ -146,7 +147,7 @@ class _GameMenuState extends State<GamificationMenu> {
               icon: Icons.library_books_outlined,
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => GamificationView(viewGames: true,))
+                MaterialPageRoute(builder: (context) => ViewGamesList())
               ),
             )
           ),
