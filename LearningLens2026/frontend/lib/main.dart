@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -21,6 +22,7 @@ import 'Views/edit_questions.dart';
 import 'Views/essay_generation.dart';
 import 'Views/gamification_view.dart';
 import 'Views/quiz_generator.dart';
+import 'firebase_options.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -33,6 +35,11 @@ void main() async {
   await ProgramAssessmentService.createDb();
   await GamificationService.createDb();
   await ReflectionService.createDb();
+
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(
     MultiProvider(
