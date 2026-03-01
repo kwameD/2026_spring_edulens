@@ -117,15 +117,6 @@ class _GameListState extends State<ViewGamesList> {
     );
   }
 
-  Stream<List<Map<String, dynamic>>> getGamesStream() {
-    return FirebaseFirestore.instance
-      .collection('Games')
-      .snapshots()
-      .map((snapshot) => snapshot.docs
-        .map((doc) => doc.data() as Map<String, dynamic>)
-        .toList());
-  }
-
   Widget _buildGridLayout(BuildContext context, BoxConstraints constraints) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
