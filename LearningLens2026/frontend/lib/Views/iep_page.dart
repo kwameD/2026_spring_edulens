@@ -13,7 +13,6 @@ import 'package:learninglens_app/Api/llm/perplexity_api.dart';
 import "package:learninglens_app/Api/lms/factory/lms_factory.dart";
 import "package:learninglens_app/Controller/custom_appbar.dart";
 import 'package:learninglens_app/Controller/html_converter.dart';
-import 'package:learninglens_app/beans/assessment.dart';
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/override.dart';
 import 'package:learninglens_app/beans/participant.dart';
@@ -30,30 +29,19 @@ class IepPage extends StatefulWidget {
 
 class _IepPageState extends State<IepPage> {
   final db = FirebaseFirestore.instance;
-  bool? isChecked1 = false;
-  bool? isChecked2 = false;
   String? selectedCourse;
   String? selectedCourseName;
   String? selectedparticipantName;
-  String? selectedEssay;
   String? selectedGradeLevel;
   String? selectedDisability;
   String? iep;
   int? userId;
   int? courseId;
   String? fullname;
-  int? newEndTime;
-  String selectedDate = 'Select a Date';
   Future<List<Participant>>? participants;
-  Future<List<Assessment>>? assignments;
-  Assessment? selectedAssignment;
-  int? epochTime;
-  int? epochTime2;
-  int? attempts;
   String? dueDate;
   List<Override>? overrides = [];
   TextEditingController _dueDateController = TextEditingController();
-  TextEditingController _attemptsController = TextEditingController();
   bool _isAIRecommending = false;
   TextEditingController iepSummaryController = TextEditingController();
   String iepSummary = "";
@@ -118,28 +106,6 @@ class _IepPageState extends State<IepPage> {
       });
     }
   }
-
-  // void _selectDate(BuildContext context) async {
-  //   final DateTime? picked = await showDatePicker(
-  //     context: context,
-  //     initialDate: epochTime != null
-  //         ? DateTime.fromMillisecondsSinceEpoch(epochTime!.toInt() * 1000)
-  //         : selectedAssignment!.dueDate ?? DateTime.now(),
-  //     firstDate: selectedAssignment!.dueDate ?? DateTime.now(),
-  //     lastDate: epochTime2 != null && selectedAssignment!.type == "essay"
-  //         ? DateTime.fromMillisecondsSinceEpoch(epochTime2! * 1000)
-  //         : DateTime(2100),
-  //   );
-  //   if (picked != null && picked != DateTime.now()) {
-  //     setState(() {
-  //       epochTime = (picked.millisecondsSinceEpoch / 1000).round();
-  //     });
-  //   }
-  // }
-
-  // void _getAssignmentOverride() async { ***** Not used *****
-  //   await MoodleLmsService().getAssignmentOverrides();
-  // }
 
   // Function to show details in a dialog
   void _showDetailsDialog(BuildContext context, Override override) {
@@ -654,15 +620,11 @@ class _IepPageState extends State<IepPage> {
 
   void resetForm(bool clearIEPSummary) {
     setState(() {
-      epochTime = null;
-      epochTime2 = null;
       if (clearIEPSummary) {
         iepSummaryController.value = TextEditingValue.empty;
         iepSummary = "";
       }
       iepRecommendation.value = TextEditingValue.empty;
-      _attemptsController.value = TextEditingValue.empty;
-      attempts = null;
     });
   }
 
@@ -749,7 +711,6 @@ class _IepPageState extends State<IepPage> {
         "Write an IEP for student $fullname that has $selectedDisability, is in the $selectedGradeLevel, and lives in New York City for $selectedCourseName. This are the things the student already knowns in the subject: $iepSummary. This iep is due on $dueDate";
 
     String summary = "";
-    DateTime? due;
 
     if (selectedLLM != LlmType.LOCAL ||
         await LocalLLMService().checkIfLoadedLocalLLMRecommended()) {
