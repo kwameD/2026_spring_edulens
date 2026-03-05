@@ -9,6 +9,8 @@ import 'package:learninglens_app/Api/lms/enum/lms_enum.dart';
 import 'package:learninglens_app/Views/assessments_view.dart';
 import 'package:learninglens_app/Views/program_assessment_view.dart';
 import 'package:learninglens_app/Views/user_settings.dart';
+import 'package:learninglens_app/Views/leaderboard_view.dart';
+import 'package:learninglens_app/firebase_options.dart';
 import 'package:learninglens_app/notifiers/login_notifier.dart';
 import 'package:learninglens_app/notifiers/theme_notifier.dart';
 import 'package:learninglens_app/services/gamification_service.dart';
@@ -22,7 +24,6 @@ import 'Views/edit_questions.dart';
 import 'Views/essay_generation.dart';
 import 'Views/gamification_view.dart';
 import 'Views/quiz_generator.dart';
-import 'firebase_options.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -40,6 +41,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await DatabaseSeeder.seedIfEmpty();
 
   runApp(
     MultiProvider(
@@ -110,7 +113,7 @@ class MyApp extends StatelessWidget {
         '/assessments': (context) => AssessmentsView(),
         // '/viewExams': (context) => const View Exam Page(),
         // '/settings': (context) => Setting(themeModeNotifier: _themeModeNotifier)
-        '/gamification': (context) => GamificationView(),
+        '/gamification': (context) => GamificationView(viewGames: false,),
         '/evaluate': (context) => ProgramAssessmentView()
       },
     );

@@ -23,20 +23,11 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -66,4 +57,30 @@ class DefaultFirebaseOptions {
     storageBucket: 'edu-lense-2026.firebasestorage.app',
   );
 
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBZFA5l1mqrOkBX4A-Ucff4yRZ4nGJObJM',
+    appId: '1:872773517760:ios:1cfdc11008a4138660c825',
+    messagingSenderId: '872773517760',
+    projectId: 'edu-lense-2026',
+    storageBucket: 'edu-lense-2026.firebasestorage.app',
+    iosBundleId: 'com.example.learninglensApp',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyBZFA5l1mqrOkBX4A-Ucff4yRZ4nGJObJM',
+    appId: '1:872773517760:ios:1cfdc11008a4138660c825',
+    messagingSenderId: '872773517760',
+    projectId: 'edu-lense-2026',
+    storageBucket: 'edu-lense-2026.firebasestorage.app',
+    iosBundleId: 'com.example.learninglensApp',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyAymu8PRjx8zKaqLp1gjj7KE1AIMKIF5Jc',
+    appId: '1:872773517760:web:4437405e130e8f3c60c825',
+    messagingSenderId: '872773517760',
+    projectId: 'edu-lense-2026',
+    authDomain: 'edu-lense-2026.firebaseapp.com',
+    storageBucket: 'edu-lense-2026.firebasestorage.app',
+  );
 }
