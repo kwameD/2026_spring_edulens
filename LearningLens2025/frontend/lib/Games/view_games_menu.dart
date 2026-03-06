@@ -123,6 +123,7 @@ class _GameListState extends State<ViewGamesList> {
         .collection('Games')
         .snapshots(),
       builder: (context, snapshot) {
+        // Retrieve the games from storage and display to UI
         if (snapshot.hasError) {
           return Text('Error loading games: ${snapshot.error}');
         }
@@ -130,6 +131,7 @@ class _GameListState extends State<ViewGamesList> {
           return CircularProgressIndicator();
         }
         
+        // Parse the retrieved games into a List, create NavigationCards from list
         List<Map<String, dynamic>> gameButtonData = snapshot.data!.docs.map((doc) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           return {
@@ -153,6 +155,7 @@ class _GameListState extends State<ViewGamesList> {
                   title: data['title'], 
                   description: data['description'], 
                   icon: data['icon'], 
+                  // TODO: Replace this with function to start the game
                   onPressed: () => print("TEST")))).toList(),
           ),
         );

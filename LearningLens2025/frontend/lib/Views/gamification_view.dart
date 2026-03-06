@@ -704,6 +704,7 @@ class _GamificationViewState extends State<GamificationView> {
 
     final gamesCollection = FirebaseFirestore.instance.collection('Games');
 
+    // Parse the results into a list
     try {
       final parsedList = _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
         if (item is Map) return Map<String, dynamic>.from(item);
@@ -711,15 +712,16 @@ class _GamificationViewState extends State<GamificationView> {
       });
 
       List<String> allWords = text.split(" ");
-
+      // TODO: Create a field to get a game title (not generated)
       String gameTitle = allWords.sublist(0, 3).join(" ");
       String gameName = "Game - $gameTitle";
+      // Add the game to the FirebaseFirestore for storage
       await gamesCollection.doc(gameName).set({
         'title': gameTitle,
         'questions': parsedList,
       });
 
-      print('✅ Game generated: $parsedList');
+      print('✅ Game generated and added to Firebase: $parsedList');
       return parsedList;
     } catch (e) {
       throw Exception(
