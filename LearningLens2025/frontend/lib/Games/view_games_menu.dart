@@ -1,45 +1,45 @@
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
-import 'package:learninglens_app/Games/view_games_menu.dart';
-import 'package:learninglens_app/Views/gamification_view.dart';
-import 'package:learninglens_app/Views/leaderboard_view.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
 
-class GamificationMenu extends StatefulWidget {
+class ViewGamesList extends StatefulWidget {
   @override
-  _GameMenuState createState() => _GameMenuState();
+  _GameListState createState() => _GameListState();
 }
 
-class _GameMenuState extends State<GamificationMenu> {
+class _GameListState extends State<ViewGamesList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Game Menu', 
+        title: 'List of Generated Games', 
         userprofileurl: LmsFactory.getLmsService().profileImage ?? '',
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: LayoutBuilder(
+            child:
+            LayoutBuilder(
               builder: (context, constraints) {
                 if (constraints.maxWidth > 600) {
                   return _buildDesktopLayout(context, constraints);
                 } else {
                   return _buildMobileLayout(context, constraints);
                 }
-              },
-            ),
+              }
+            )
           )
         ],
       )
     );
   }
 
-
-  
   Widget _buildDesktopLayout(BuildContext context, BoxConstraints constraints) {
     final double screenWidth = constraints.maxWidth;
 
@@ -118,54 +118,48 @@ class _GameMenuState extends State<GamificationMenu> {
   }
 
   Widget _buildGridLayout(BuildContext context, BoxConstraints constraints) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: 1200),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        alignment: WrapAlignment.center,
-        children: [
-          SizedBox(
-            width: 350,
-            height: 140,
-            child: NavigationCard(
-              title: 'Create a game', 
-              description: 'Create games for students to learn while having fun.', 
-              icon: Icons.videogame_asset_outlined, 
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => GamificationView(viewGames: false,))
-              ),
-            )
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+        .collection('Games')
+        .snapshots(),
+      builder: (context, snapshot) {
+        // Retrieve the games from storage and display to UI
+        if (snapshot.hasError) {
+          return Text('Error loading games: ${snapshot.error}');
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return CircularProgressIndicator();
+        }
+        
+        // Parse the retrieved games into a List, create NavigationCards from list
+        List<Map<String, dynamic>> gameButtonData = snapshot.data!.docs.map((doc) {
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          return {
+            'title': data['title'],
+            'description': 'Description that is relatively long and big and things',
+            'icon': Icons.gamepad_outlined,
+          };
+        }).toList();
+        
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 1200),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: gameButtonData
+              .map((data) => SizedBox(
+                width: 550,
+                height: 440,
+                child: NavigationCard(
+                  title: data['title'], 
+                  description: data['description'], 
+                  icon: data['icon'], 
+                  // TODO: Replace this with function to start the game
+                  onPressed: () => print("TEST")))).toList(),
           ),
-          SizedBox(
-            width: 350,
-            height: 140,
-            child: NavigationCard(
-              title: 'Games', 
-              description: 'View and play your current games.', 
-              icon: Icons.library_books_outlined,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ViewGamesList())
-              ),
-            )
-          ),
-          SizedBox(
-            width: 350,
-            height: 140,
-            child: NavigationCard(
-              title: 'Leaderboards',
-              description: 'View the current leaderboards.',
-              icon: Icons.leaderboard_outlined,
-              onPressed: () => Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (context) => LeaderboardTable())
-              )
-            ),
-          )
-        ],
-      )
+        );
+      },
     );
   }
 }

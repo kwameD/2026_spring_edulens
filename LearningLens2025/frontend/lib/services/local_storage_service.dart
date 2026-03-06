@@ -117,6 +117,15 @@ class LocalStorageService {
     return url;
   }
 
+  static String getMoodleToken() {
+    String url =
+      _prefs.getString('moodleKey') ?? dotenv.env['WS_MOODLE_TOKEN'] ?? '';
+    if (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    return url;
+  }
+
   /// Clears Moodle URL.
   static void clearMoodleUrl() {
     _prefs.remove('moodleUrl');
