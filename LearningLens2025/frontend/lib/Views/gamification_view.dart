@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/participant.dart';
 import 'package:intl/intl.dart';
@@ -701,12 +702,26 @@ class _GamificationViewState extends State<GamificationView> {
       cleaned = match.group(0)!;
     }
 
+    final gamesCollection = FirebaseFirestore.instance.collection('Games');
+
+    // Parse the results into a list
     try {
       final parsedList = _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
         if (item is Map) return Map<String, dynamic>.from(item);
         throw Exception('Item is not an object');
       });
-      print('✅ Game generated: $parsedList');
+
+      List<String> allWords = text.split(" ");
+      // TODO: Create a field to get a game title (not generated)
+      String gameTitle = allWords.sublist(0, 3).join(" ");
+      String gameName = "Game - $gameTitle";
+      // Add the game to the FirebaseFirestore for storage
+      await gamesCollection.doc(gameName).set({
+        'title': gameTitle,
+        'questions': parsedList,
+      });
+
+      print('✅ Game generated and added to Firebase: $parsedList');
       return parsedList;
     } catch (e) {
       throw Exception(
