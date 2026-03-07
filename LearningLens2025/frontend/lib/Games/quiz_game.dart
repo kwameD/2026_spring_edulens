@@ -97,7 +97,7 @@ class _QuizGameState extends State<QuizGame> {
 
   void _startTimerForCurrentQuestion() {
     _timer?.cancel();
-    if (!_timedMode || widget.previewMode || currentIndex >= _preparedQuestions.length) {
+    if (!_timedMode || currentIndex >= _preparedQuestions.length) {
       return;
     }
     _timeRemaining = widget.settings.roundTimeSeconds;
@@ -146,25 +146,21 @@ class _QuizGameState extends State<QuizGame> {
       'correct': correctAnswerText,
     });
 
-    if (widget.previewMode) {
-      setState(() {
-        previewSelected = selected;
-        showResult = true;
-      });
-    } else {
-      setState(() {
-        wasCorrect = correct;
-        if (correct) {
-          _streak++;
-          final timeBonus = _timedMode ? _timeRemaining * widget.settings.timeBonus : 0;
-          final streakBonus = _streak > 1 ? (_streak - 1) * widget.settings.streakBonus : 0;
-          score += widget.settings.basePoints + timeBonus + streakBonus;
-        } else {
-          _streak = 0;
-        }
-        showResult = true;
-      });
-    }
+    setState(() {
+      previewSelected = selected;
+      wasCorrect = correct;
+
+      if (correct) {
+        _streak++;
+        final timeBonus = _timedMode ? _timeRemaining * widget.settings.timeBonus : 0;
+        final streakBonus = _streak > 1 ? (_streak - 1) * widget.settings.streakBonus : 0;
+        score += widget.settings.basePoints + timeBonus + streakBonus;
+      } else {
+        _streak = 0;
+      }
+
+      showResult = true;
+    });
 
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) nextQuestion();
@@ -190,7 +186,7 @@ class _QuizGameState extends State<QuizGame> {
   }
 
   void _reportCompletion(int totalQuestions) {
-    if (_completionReported || widget.previewMode) return;
+    if (_completionReported) return;
     _completionReported = true;
     widget.onComplete(
       GamePlayResult(
@@ -252,7 +248,7 @@ class _QuizGameState extends State<QuizGame> {
             Chip(label: Text('Mode: ${widget.settings.mode.toUpperCase()}')),
             Chip(label: Text('Difficulty: ${questionDifficulty.toUpperCase()}')),
             if (_timedMode) Chip(label: Text('Time: ${_timeRemaining}s')),
-            if (!widget.previewMode) Chip(label: Text('Streak: $_streak')),
+            Chip(label: Text('Streak: $_streak')),
           ],
         ),
         const SizedBox(height: 16),
@@ -279,7 +275,7 @@ class _QuizGameState extends State<QuizGame> {
             );
           },
         ),
-        if (showResult && !widget.previewMode)
+        if (showResult)
           Column(
             children: [
               Text(

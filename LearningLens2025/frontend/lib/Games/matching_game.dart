@@ -49,7 +49,7 @@ class _MatchingGameState extends State<MatchingGame> {
   }
 
   void _startTimer() {
-    if (widget.settings.roundTimeSeconds <= 0 || widget.previewMode) return;
+    if (widget.settings.roundTimeSeconds <= 0) return;
 
     _timeRemaining = widget.settings.roundTimeSeconds;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -108,7 +108,7 @@ class _MatchingGameState extends State<MatchingGame> {
   }
 
   void _reportCompletion() {
-    if (_completionReported || widget.previewMode) return;
+    if (_completionReported) return;
 
     _completionReported = true;
 
@@ -137,7 +137,7 @@ class _MatchingGameState extends State<MatchingGame> {
       final correctAnswer = correctMatches[term] ?? '';
       final isCorrect = selected != null && selected == correctAnswer;
 
-      if (!widget.previewMode && isCorrect) {
+      if (isCorrect) {
         score += widget.settings.basePoints;
       }
 
@@ -149,8 +149,7 @@ class _MatchingGameState extends State<MatchingGame> {
       });
     }
 
-    if (!widget.previewMode &&
-        widget.settings.roundTimeSeconds > 0 &&
+    if (widget.settings.roundTimeSeconds > 0 &&
         !forceFinish) {
       score += _timeRemaining * widget.settings.timeBonus;
     }
