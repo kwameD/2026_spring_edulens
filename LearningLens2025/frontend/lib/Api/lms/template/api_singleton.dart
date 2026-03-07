@@ -4,6 +4,7 @@ import 'package:learninglens_app/Api/lms/lms_interface.dart';
 import 'package:learninglens_app/beans/assignment.dart';
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/grade.dart';
+import 'package:learninglens_app/beans/iep.dart';
 import 'package:learninglens_app/beans/lesson_plan.dart';
 import 'package:learninglens_app/beans/moodle_rubric.dart';
 import 'package:learninglens_app/beans/override.dart';
@@ -59,6 +60,12 @@ class ApiSingleton implements LmsInterface {
   @override
   List<Override>? overrides;
 
+  @override
+  String? gradeLevel;
+
+  @override
+  String? disability;
+
   // Authentication/Login methods
   @override
   Future<void> login(String username, String password, String baseURL) {
@@ -100,6 +107,8 @@ class ApiSingleton implements LmsInterface {
     fullName = null;
     profileImage = null;
     courses = [];
+    gradeLevel = null;
+    disability = null;
   }
 
   // Course methods
@@ -335,6 +344,20 @@ class ApiSingleton implements LmsInterface {
       int? cutoffDate,
       int? timelimit,
       int? sortorder,
+      int? courseId}) {
+    // TODO: implement addEssayOverride
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<IEP> addIEPOverride(
+      {required int assignid,
+      int? userId,
+      int? groupId,
+      String? disability,
+      String? gradeLevel,
+      String? studentKnowledge,
+      String? iep,
       int? courseId}) {
     // TODO: implement addEssayOverride
     throw UnimplementedError();

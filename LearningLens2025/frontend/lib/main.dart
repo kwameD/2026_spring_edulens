@@ -2,12 +2,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 import 'package:learninglens_app/Api/database/ai_logging_singleton.dart';
 import 'package:learninglens_app/Api/lms/enum/lms_enum.dart';
 import 'package:learninglens_app/Views/assessments_view.dart';
-import 'package:learninglens_app/Views/leaderboard_view.dart';
 import 'package:learninglens_app/Views/program_assessment_view.dart';
 import 'package:learninglens_app/Views/user_settings.dart';
+import 'package:learninglens_app/Views/leaderboard_view.dart';
 import 'package:learninglens_app/firebase_options.dart';
 import 'package:learninglens_app/notifiers/login_notifier.dart';
 import 'package:learninglens_app/notifiers/theme_notifier.dart';
@@ -16,9 +18,6 @@ import 'package:learninglens_app/services/local_storage_service.dart';
 import 'package:learninglens_app/services/program_assessment_service.dart';
 import 'package:learninglens_app/services/reflection_service.dart';
 import 'package:provider/provider.dart';
-
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_quill/flutter_quill.dart';
 
 import 'Views/dashboard.dart';
 import 'Views/edit_questions.dart';
@@ -37,6 +36,11 @@ void main() async {
   await ProgramAssessmentService.createDb();
   await GamificationService.createDb();
   await ReflectionService.createDb();
+
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await DatabaseSeeder.seedIfEmpty();
 

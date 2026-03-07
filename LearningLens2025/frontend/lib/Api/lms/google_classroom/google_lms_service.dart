@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:learninglens_app/Api/lms/google_classroom/google_classroom_api.dart'; // Import the updated API
 import 'package:learninglens_app/Api/lms/lms_interface.dart';
 import 'package:learninglens_app/Views/assessments_view.dart';
@@ -11,6 +12,7 @@ import 'package:learninglens_app/beans/assignment.dart';
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/g_question_form_data.dart';
 import 'package:learninglens_app/beans/grade.dart';
+import 'package:learninglens_app/beans/iep.dart';
 import 'package:learninglens_app/beans/moodle_rubric.dart';
 import 'package:learninglens_app/beans/override.dart';
 import 'package:learninglens_app/beans/participant.dart';
@@ -23,7 +25,6 @@ import 'package:learninglens_app/beans/submission_with_grade.dart';
 import 'package:learninglens_app/services/api_service.dart';
 import 'package:learninglens_app/services/local_storage_service.dart';
 import 'package:xml/xml.dart' as xml;
-import 'package:intl/intl.dart';
 
 /// A Singleton class for Moodle API access implementing [LmsInterface].
 class GoogleLmsService extends LmsInterface {
@@ -1532,5 +1533,42 @@ class GoogleLmsService extends LmsInterface {
             .toString(),
         individualStudentsOptions: [userId!]);
     return QuizOverride.empty();
+  }
+
+  @override
+  Future<IEP> addIEPOverride(
+      {required int assignid,
+      int? userId,
+      int? groupId,
+      String? disability,
+      String? gradeLevel,
+      String? studentKnowledge,
+      String? iep,
+      int? courseId}) async {
+    if (courseId == null) {
+      return IEP.empty();
+    }
+    // var assignment =
+    //     getCourse(courseId).quizzes?.firstWhereOrNull((e) => e.id == quizId);
+    // if (assignment == null) {
+    //   return QuizOverride.empty();
+    // }
+
+    // await createQuiz(
+    //     courseId.toString(),
+    //     assignment.name!,
+    //     assignment.description ?? "",
+    //     "",
+    //     (timeOpen == null
+    //             ? assignment.timeOpen
+    //             : DateTime.fromMillisecondsSinceEpoch(timeOpen))
+    //         .toString(),
+    //     (timeClose == null
+    //             ? assignment.timeClose?.millisecondsSinceEpoch ??
+    //                 DateTime.now().millisecondsSinceEpoch
+    //             : timeClose * 1000)
+    //         .toString(),
+    //     individualStudentsOptions: [userId!]);
+    return IEP.empty();
   }
 }
