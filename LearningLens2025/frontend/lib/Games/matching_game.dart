@@ -8,14 +8,14 @@ class MatchingGame extends StatefulWidget {
   final List<Map<String, dynamic>> pairs;
   final void Function(GamePlayResult result) onComplete;
   final bool previewMode;
-  final Map<String, dynamic>? settings;
+  final GameSettings settings;
 
   const MatchingGame({
     super.key,
     required this.pairs,
     required this.onComplete,
     this.previewMode = false,
-    this.settings,
+    this.settings = const GameSettings(),
   });
 
   @override
@@ -28,30 +28,16 @@ class _MatchingGameState extends State<MatchingGame> {
   Map<String, String> correctMatches = {};
   Map<String, String> userMatches = {};
   int score = 0;
-  int earnedPoints = 0;
-  int streak = 0;
   bool gameFinished = false;
   List<Map<String, String>> results = [];
   bool _completionReported = false;
   Timer? _timer;
-  int? _timeRemaining;
-
-  Map<String, dynamic> get _settings => widget.settings ?? const {};
-  Map<String, dynamic> get _scoring =>
-      Map<String, dynamic>.from(_settings['scoring'] ?? const {});
-  bool get _teamMode => _settings['teamMode'] == true;
-  String get _difficulty => (_settings['difficulty']?.toString() ?? 'medium');
-  bool get _scoringEnabled => _scoring['enabled'] != false;
-  int get _basePoints => (_scoring['basePoints'] as num?)?.round() ?? 100;
-  int get _streakBonus => (_scoring['streakBonus'] as num?)?.round() ?? 10;
-  int get _timeBonusPerSecond =>
-      (_scoring['timeBonusPerSecond'] as num?)?.round() ?? 5;
-  int get _configuredRoundTime =>
-      (_settings['roundTimeSeconds'] as num?)?.round() ?? 0;
+  int _timeRemaining = 0;
 
   @override
   void initState() {
     super.initState();
+    debugPrint('📦 MatchingGame received pairs: ${widget.pairs}');
     initializeGame();
     _startTimer();
   }
@@ -62,35 +48,22 @@ class _MatchingGameState extends State<MatchingGame> {
     super.dispose();
   }
 
-  int _effectiveRoundTimeSeconds() {
-    if (_configuredRoundTime <= 0) return 0;
-    switch (_difficulty.toLowerCase()) {
-      case 'easy':
-        return _configuredRoundTime + 10;
-      case 'hard':
-        return (_configuredRoundTime - 10).clamp(10, 999);
-      default:
-        return _configuredRoundTime;
-    }
-  }
-
   void _startTimer() {
-    if (widget.previewMode) return;
-    final seconds = _effectiveRoundTimeSeconds();
-    if (seconds <= 0) return;
-    _timeRemaining = seconds;
-    _timer?.cancel();
+    if (widget.settings.roundTimeSeconds <= 0 || widget.previewMode) return;
+
+    _timeRemaining = widget.settings.roundTimeSeconds;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted || gameFinished) return;
-      final nextValue = (_timeRemaining ?? 0) - 1;
-      if (nextValue <= 0) {
+
+      if (_timeRemaining <= 1) {
         timer.cancel();
-        _submitAnswers(timedOut: true);
-      } else {
-        setState(() {
-          _timeRemaining = nextValue;
-        });
+        _submitAnswers(forceFinish: true);
+        return;
       }
+
+      setState(() {
+        _timeRemaining--;
+      });
     });
   }
 
@@ -100,115 +73,100 @@ class _MatchingGameState extends State<MatchingGame> {
       return;
     }
 
+    leftItems.clear();
+    rightItems.clear();
+    correctMatches.clear();
+
     for (final pair in widget.pairs) {
       final term = pair['term'];
       final definition = pair['definition'] ?? pair['match'];
-      if (term == null || definition == null) continue;
+
+      if (term == null || definition == null) {
+        debugPrint('⚠️ Skipping incomplete pair: $pair');
+        continue;
+      }
 
       final termStr = term.toString();
       final defStr = definition.toString();
+
       leftItems.add(termStr);
       rightItems.add(defStr);
       correctMatches[termStr] = defStr;
     }
 
+    debugPrint('✅ Loaded ${leftItems.length} valid pairs: $correctMatches');
     rightItems.shuffle();
   }
 
   String? _matchedTermForDefinition(String definition) {
     for (final entry in userMatches.entries) {
-      if (entry.value == definition) return entry.key;
+      if (entry.value == definition) {
+        return entry.key;
+      }
     }
     return null;
   }
 
   void _reportCompletion() {
     if (_completionReported || widget.previewMode) return;
+
     _completionReported = true;
+
+    final maxScore = leftItems.length * widget.settings.basePoints +
+        (widget.settings.roundTimeSeconds > 0
+            ? widget.settings.roundTimeSeconds * widget.settings.timeBonus
+            : 0);
+
     widget.onComplete(
       GamePlayResult(
         score: score,
-        maxScore: leftItems.length,
-        earnedPoints: earnedPoints,
+        maxScore: maxScore,
       ),
     );
   }
 
-  void _submitAnswers({bool timedOut = false}) {
+  void _submitAnswers({bool forceFinish = false}) {
     if (gameFinished) return;
-    _timer?.cancel();
 
-    int runningStreak = 0;
+    _timer?.cancel();
     score = 0;
-    earnedPoints = 0;
     results.clear();
 
     for (final term in leftItems) {
-      final selected =
-          userMatches[term] ?? (timedOut ? 'Timed out' : 'No match');
-      final correctValue = correctMatches[term] ?? '';
-      final correct = selected == correctValue;
-      if (!widget.previewMode && correct) {
-        score++;
-        runningStreak++;
-        if (_scoringEnabled) {
-          earnedPoints += _basePoints +
-              ((runningStreak > 1 ? runningStreak - 1 : 0) * _streakBonus);
-        }
-      } else {
-        runningStreak = 0;
+      final selected = userMatches[term];
+      final correctAnswer = correctMatches[term] ?? '';
+      final isCorrect = selected != null && selected == correctAnswer;
+
+      if (!widget.previewMode && isCorrect) {
+        score += widget.settings.basePoints;
       }
 
       results.add({
         'term': term,
-        'selected': selected,
-        'correct': correctValue,
-        'status': correct ? '✅ Correct' : '❌ Incorrect',
+        'selected': selected ?? 'No answer',
+        'correct': correctAnswer,
+        'status': isCorrect ? '✅ Correct' : '❌ Incorrect',
       });
     }
 
-    if (!widget.previewMode && _scoringEnabled) {
-      earnedPoints += (_timeRemaining ?? 0) * _timeBonusPerSecond;
+    if (!widget.previewMode &&
+        widget.settings.roundTimeSeconds > 0 &&
+        !forceFinish) {
+      score += _timeRemaining * widget.settings.timeBonus;
     }
 
     setState(() {
-      streak = runningStreak;
       gameFinished = true;
     });
-    _reportCompletion();
-  }
 
-  Widget _buildHeaderChips() {
-    final chips = <Widget>[
-      _MatchInfoChip(
-        label: _teamMode ? 'Team mode' : 'Solo mode',
-        icon: Icons.groups,
-      ),
-      _MatchInfoChip(
-        label: _difficulty[0].toUpperCase() + _difficulty.substring(1),
-        icon: Icons.tune,
-      ),
-    ];
-    if (_configuredRoundTime > 0) {
-      chips.add(
-        _MatchInfoChip(
-          label: _timeRemaining != null
-              ? '$_timeRemaining s left'
-              : '${_effectiveRoundTimeSeconds()} s round',
-          icon: Icons.timer,
-        ),
-      );
-    }
-    if (_scoringEnabled) {
-      chips.add(_MatchInfoChip(label: '$earnedPoints pts', icon: Icons.stars));
-    }
-    return Wrap(spacing: 8, runSpacing: 8, children: chips);
+    _reportCompletion();
   }
 
   @override
   Widget build(BuildContext context) {
     if (gameFinished) {
       _reportCompletion();
+
       return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,16 +177,9 @@ class _MatchingGameState extends State<MatchingGame> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Correct Matches: $score / ${leftItems.length}',
+              'Score: $score',
               style: const TextStyle(fontSize: 16),
             ),
-            if (_scoringEnabled && !widget.previewMode) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Points Earned: $earnedPoints',
-                style: const TextStyle(fontSize: 16),
-              ),
-            ],
             const SizedBox(height: 20),
             ...results.map(
               (r) => ListTile(
@@ -248,8 +199,27 @@ class _MatchingGameState extends State<MatchingGame> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          _buildHeaderChips(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(
+                label: Text('Mode: ${widget.settings.mode.toUpperCase()}'),
+              ),
+              if (widget.settings.roundTimeSeconds > 0)
+                Chip(
+                  label: Text('Time: ${_timeRemaining}s'),
+                ),
+              Chip(
+                label: Text(
+                  'Difficulty: ${widget.settings.difficulty.toUpperCase()}',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           const Text(
             'Drag a term to its matching definition.',
             style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
@@ -272,6 +242,7 @@ class _MatchingGameState extends State<MatchingGame> {
                     itemBuilder: (context, index) {
                       final term = leftItems[index];
                       final isMatched = userMatches.containsKey(term);
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Draggable<String>(
@@ -330,10 +301,12 @@ class _MatchingGameState extends State<MatchingGame> {
                     itemBuilder: (context, index) {
                       final definition = rightItems[index];
                       final matchedTerm = _matchedTermForDefinition(definition);
+
                       return DragTarget<String>(
                         builder: (context, candidateData, rejectedData) {
                           final isDropping = candidateData.isNotEmpty;
                           final hasMatch = matchedTerm != null;
+
                           return GestureDetector(
                             onTap: hasMatch
                                 ? () {
@@ -367,13 +340,16 @@ class _MatchingGameState extends State<MatchingGame> {
                             ),
                           );
                         },
-                        onAccept: (term) {
+                        onAcceptWithDetails: (details) {
+                          final term = details.data;
                           setState(() {
                             final existingTerm =
                                 _matchedTermForDefinition(definition);
+
                             if (existingTerm != null) {
                               userMatches.remove(existingTerm);
                             }
+
                             userMatches.remove(term);
                             userMatches[term] = definition;
                           });
@@ -388,7 +364,7 @@ class _MatchingGameState extends State<MatchingGame> {
           const SizedBox(height: 20),
           if (!gameFinished)
             ElevatedButton(
-              onPressed: () => _submitAnswers(),
+              onPressed: _submitAnswers,
               child: const Text('Submit Answers'),
             ),
         ],
@@ -415,32 +391,6 @@ class _MatchChip extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(8),
       child: Text(label),
-    );
-  }
-}
-
-class _MatchInfoChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-
-  const _MatchInfoChip({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.deepPurple.shade50,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: Colors.deepPurple),
-          const SizedBox(width: 6),
-          Text(label),
-        ],
-      ),
     );
   }
 }

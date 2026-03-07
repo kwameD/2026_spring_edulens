@@ -37,15 +37,6 @@ class _GamificationViewState extends State<GamificationView> {
   PlatformFile? _selectedFile;
   String? _selectedGameType;
   String? _selectedDifficulty;
-  bool _timedRoundsEnabled = true;
-  int _roundTimeSeconds = 30;
-  bool _enableScoring = true;
-  int _basePoints = 100;
-  int _streakBonus = 10;
-  int _timeBonusPerSecond = 5;
-  bool _teamMode = false;
-  int _teamCount = 2;
-  bool _adaptiveDifficulty = false;
   bool _isGameCreated = false;
   List<Map<String, dynamic>>? _generatedGameData;
   LlmType? _selectedLLM;
@@ -60,64 +51,113 @@ class _GamificationViewState extends State<GamificationView> {
   final Map<int, String> _studentNameCache = {};
   bool _isClearingAssignments = false;
   bool _coursesLoaded = false;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _roundTimeController =
+      TextEditingController(text: '30');
+  final TextEditingController _basePointsController =
+      TextEditingController(text: '100');
+  final TextEditingController _timeBonusController =
+      TextEditingController(text: '5');
+  final TextEditingController _streakBonusController =
+      TextEditingController(text: '25');
+  bool _adaptiveDifficultyEnabled = false;
+  String _selectedMode = 'Solo';
 
   @override
   void initState() {
     super.initState();
     _selectedLLM = LlmType.values
         .firstWhereOrNull((llm) => LocalStorageService.userHasLlmKey(llm));
-    _selectedDifficulty ??= 'Medium';
     _refreshAssignments();
   }
 
-
-  void _markGameDirty() {
-    setState(() {
-      _gameNeedsRefresh = true;
-      _isGameCreated = false;
-    });
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _roundTimeController.dispose();
+    _basePointsController.dispose();
+    _timeBonusController.dispose();
+    _streakBonusController.dispose();
+    super.dispose();
   }
 
-  Map<String, dynamic> _buildGameSettings() {
-    return {
-      'difficulty': (_selectedDifficulty ?? 'Medium').toLowerCase(),
-      'roundTimeSeconds': _timedRoundsEnabled ? _roundTimeSeconds : 0,
-      'teamMode': _teamMode,
-      'teamCount': _teamMode ? _teamCount : 1,
-      'adaptiveDifficulty': _adaptiveDifficulty,
-      'scoring': {
-        'enabled': _enableScoring,
-        'basePoints': _basePoints,
-        'streakBonus': _streakBonus,
-        'timeBonusPerSecond': _timeBonusPerSecond,
-      },
-    };
+  GameSettings _buildGameSettings() {
+    return GameSettings(
+      roundTimeSeconds: int.tryParse(_roundTimeController.text.trim()) ?? 0,
+      basePoints: int.tryParse(_basePointsController.text.trim()) ?? 100,
+      timeBonus: int.tryParse(_timeBonusController.text.trim()) ?? 0,
+      streakBonus: int.tryParse(_streakBonusController.text.trim()) ?? 0,
+      adaptiveDifficulty: _adaptiveDifficultyEnabled,
+      difficulty: (_selectedDifficulty ?? 'Medium').toLowerCase(),
+      mode: _selectedMode.toLowerCase(),
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+    );
   }
 
-  String _describeSettings(Map<String, dynamic> settings) {
-    final parts = <String>[];
-    final time = (settings['roundTimeSeconds'] as num?)?.round() ?? 0;
-    final difficulty = settings['difficulty']?.toString();
-    final teamMode = settings['teamMode'] == true;
-    final teamCount = (settings['teamCount'] as num?)?.round() ?? 1;
-    final scoring = Map<String, dynamic>.from(settings['scoring'] ?? const {});
+  int _safePositiveInt(String value, int fallback) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed < 0) return fallback;
+    return parsed;
+  }
 
-    if (difficulty != null && difficulty.isNotEmpty) {
-      parts.add('Difficulty: ${difficulty[0].toUpperCase()}${difficulty.substring(1)}');
+  String _defaultGeneratedTitle() {
+    final explicit = _titleController.text.trim();
+    if (explicit.isNotEmpty) return explicit;
+    final gameType = _selectedGameType ?? 'Game';
+    return 'Generated $gameType';
+  }
+
+  String _defaultGeneratedDescription() {
+    final explicit = _descriptionController.text.trim();
+    if (explicit.isNotEmpty) return explicit;
+    return 'Auto-generated from ${_selectedFile?.name ?? 'uploaded class material'}.';
+  }
+
+  String _extractFirstJsonArray(String raw) {
+    var cleaned = raw
+        .replaceAll(RegExp(r'```json', multiLine: true), '')
+        .replaceAll(RegExp(r'```', multiLine: true), '')
+        .trim();
+
+    final start = cleaned.indexOf('[');
+    if (start == -1) {
+      throw Exception('No JSON array found in model response.');
     }
-    if (time > 0) {
-      parts.add('Timer: ${time}s');
+
+    int depth = 0;
+    bool inString = false;
+    bool escaping = false;
+    for (int i = start; i < cleaned.length; i++) {
+      final ch = cleaned[i];
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+      if (ch == '\\') {
+        escaping = true;
+        continue;
+      }
+      if (ch == '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (ch == '[') depth++;
+      if (ch == ']') {
+        depth--;
+        if (depth == 0) {
+          cleaned = cleaned.substring(start, i + 1);
+          cleaned = cleaned.replaceAll(RegExp(r',\s*([\]}])'), r'$1');
+          return cleaned;
+        }
+      }
     }
-    parts.add(teamMode ? 'Mode: Team (${teamCount} teams)' : 'Mode: Solo');
-    if (scoring['enabled'] != false) {
-      final base = (scoring['basePoints'] as num?)?.round() ?? 100;
-      final streak = (scoring['streakBonus'] as num?)?.round() ?? 10;
-      parts.add('Scoring: ${base} base + ${streak} streak');
-    }
-    if (settings['adaptiveDifficulty'] == true) {
-      parts.add('Adaptive pacing on');
-    }
-    return parts.join(' • ');
+
+    throw Exception(
+        'Could not isolate a complete JSON array from the model response.');
   }
 
   void showLoadingDialog(BuildContext context) {
@@ -206,7 +246,9 @@ class _GamificationViewState extends State<GamificationView> {
             ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: (isTeacher && !widget.viewGames) ? _buildTeacherUI(context) : _buildStudentUI(),
+        child: (isTeacher && !widget.viewGames)
+            ? _buildTeacherUI(context)
+            : _buildStudentUI(),
       ),
     );
   }
@@ -267,6 +309,36 @@ class _GamificationViewState extends State<GamificationView> {
               ],
             ),
           ],
+          const SizedBox(height: 24),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              labelText: 'Game Title',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (_) {
+              setState(() {
+                _gameNeedsRefresh = true;
+                _isGameCreated = false;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _descriptionController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Game Description',
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
+            ),
+            onChanged: (_) {
+              setState(() {
+                _gameNeedsRefresh = true;
+                _isGameCreated = false;
+              });
+            },
+          ),
           const SizedBox(height: 30),
           const Text('Select Game Type:', style: TextStyle(fontSize: 18)),
           const SizedBox(height: 10),
@@ -298,170 +370,92 @@ class _GamificationViewState extends State<GamificationView> {
             }).toList(),
           ),
           const SizedBox(height: 30),
+          const Text('Game Mode:', style: TextStyle(fontSize: 18)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            children: ['Solo', 'Team'].map((mode) {
+              return ChoiceChip(
+                label: Text(mode),
+                selected: _selectedMode == mode,
+                onSelected: (_) {
+                  setState(() {
+                    _selectedMode = mode;
+                    _gameNeedsRefresh = true;
+                    _isGameCreated = false;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 30),
           const Text('Game Mechanics:', style: TextStyle(fontSize: 18)),
           const SizedBox(height: 10),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Timed rounds'),
-                    subtitle: const Text('Adds a visible countdown during play.'),
-                    value: _timedRoundsEnabled,
-                    onChanged: (value) {
-                      setState(() {
-                        _timedRoundsEnabled = value;
-                        _gameNeedsRefresh = true;
-                        _isGameCreated = false;
-                      });
-                    },
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _roundTimeController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Round Time (sec)',
+                    border: OutlineInputBorder(),
                   ),
-                  if (_timedRoundsEnabled) ...[
-                    Text('Round time: $_roundTimeSeconds seconds'),
-                    Slider(
-                      value: _roundTimeSeconds.toDouble(),
-                      min: 10,
-                      max: 90,
-                      divisions: 16,
-                      label: '$_roundTimeSeconds s',
-                      onChanged: (value) {
-                        setState(() {
-                          _roundTimeSeconds = value.round();
-                          _gameNeedsRefresh = true;
-                          _isGameCreated = false;
-                        });
-                      },
-                    ),
-                  ],
-                  const Divider(),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Scoring and streaks'),
-                    subtitle: const Text('Adds base points, streak bonus, and time bonus.'),
-                    value: _enableScoring,
-                    onChanged: (value) {
-                      setState(() {
-                        _enableScoring = value;
-                        _gameNeedsRefresh = true;
-                        _isGameCreated = false;
-                      });
-                    },
-                  ),
-                  if (_enableScoring) ...[
-                    Text('Base points per correct answer: $_basePoints'),
-                    Slider(
-                      value: _basePoints.toDouble(),
-                      min: 25,
-                      max: 200,
-                      divisions: 7,
-                      label: '$_basePoints',
-                      onChanged: (value) {
-                        setState(() {
-                          _basePoints = value.round();
-                          _gameNeedsRefresh = true;
-                          _isGameCreated = false;
-                        });
-                      },
-                    ),
-                    Text('Streak bonus: $_streakBonus'),
-                    Slider(
-                      value: _streakBonus.toDouble(),
-                      min: 0,
-                      max: 50,
-                      divisions: 10,
-                      label: '$_streakBonus',
-                      onChanged: (value) {
-                        setState(() {
-                          _streakBonus = value.round();
-                          _gameNeedsRefresh = true;
-                          _isGameCreated = false;
-                        });
-                      },
-                    ),
-                    Text('Time bonus per second left: $_timeBonusPerSecond'),
-                    Slider(
-                      value: _timeBonusPerSecond.toDouble(),
-                      min: 0,
-                      max: 20,
-                      divisions: 10,
-                      label: '$_timeBonusPerSecond',
-                      onChanged: (value) {
-                        setState(() {
-                          _timeBonusPerSecond = value.round();
-                          _gameNeedsRefresh = true;
-                          _isGameCreated = false;
-                        });
-                      },
-                    ),
-                  ],
-                  const Divider(),
-                  const Text('Mode', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 10,
-                    children: [
-                      ChoiceChip(
-                        label: const Text('Solo'),
-                        selected: !_teamMode,
-                        onSelected: (_) {
-                          setState(() {
-                            _teamMode = false;
-                            _gameNeedsRefresh = true;
-                            _isGameCreated = false;
-                          });
-                        },
-                      ),
-                      ChoiceChip(
-                        label: const Text('Team'),
-                        selected: _teamMode,
-                        onSelected: (_) {
-                          setState(() {
-                            _teamMode = true;
-                            _gameNeedsRefresh = true;
-                            _isGameCreated = false;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  if (_teamMode) ...[
-                    const SizedBox(height: 10),
-                    Text('Number of teams: $_teamCount'),
-                    Slider(
-                      value: _teamCount.toDouble(),
-                      min: 2,
-                      max: 4,
-                      divisions: 2,
-                      label: '$_teamCount',
-                      onChanged: (value) {
-                        setState(() {
-                          _teamCount = value.round();
-                          _gameNeedsRefresh = true;
-                          _isGameCreated = false;
-                        });
-                      },
-                    ),
-                  ],
-                  const Divider(),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Adaptive difficulty pacing'),
-                    subtitle: const Text('Makes hard runs a little faster and struggling runs a little slower.'),
-                    value: _adaptiveDifficulty,
-                    onChanged: (value) {
-                      setState(() {
-                        _adaptiveDifficulty = value;
-                        _gameNeedsRefresh = true;
-                        _isGameCreated = false;
-                      });
-                    },
-                  ),
-                ],
+                ),
               ),
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _basePointsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Base Points',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _timeBonusController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Time Bonus / sec',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _streakBonusController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Streak Bonus',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Enable adaptive difficulty'),
+            subtitle: const Text(
+              'Quiz questions will adapt around the selected difficulty when supported.',
             ),
+            value: _adaptiveDifficultyEnabled,
+            onChanged: (value) {
+              setState(() {
+                _adaptiveDifficultyEnabled = value;
+                _gameNeedsRefresh = true;
+                _isGameCreated = false;
+              });
+            },
           ),
           const SizedBox(height: 30),
           const Text('Select LLM Model:', style: TextStyle(fontSize: 18)),
@@ -524,6 +518,23 @@ class _GamificationViewState extends State<GamificationView> {
                   return;
                 }
 
+                final title = _titleController.text.trim();
+                if (title.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a game title.')),
+                  );
+                  return;
+                }
+
+                _roundTimeController.text =
+                    '${_safePositiveInt(_roundTimeController.text, 0)}';
+                _basePointsController.text =
+                    '${_safePositiveInt(_basePointsController.text, 100)}';
+                _timeBonusController.text =
+                    '${_safePositiveInt(_timeBonusController.text, 0)}';
+                _streakBonusController.text =
+                    '${_safePositiveInt(_streakBonusController.text, 0)}';
+
                 showLoadingDialog(context);
 
                 try {
@@ -555,25 +566,13 @@ class _GamificationViewState extends State<GamificationView> {
                       _selectedLLM == LlmType.GROK ||
                       _selectedLLM == LlmType.LOCAL) {
                     if (_selectedGameType == 'Quiz Game') {
-                      response = await generateGameFromText(
-                        text,
-                        aiModel,
-                        difficulty: (_selectedDifficulty ?? 'Medium').toLowerCase(),
-                      );
+                      response = await generateGameFromText(text, aiModel);
                     } else if (_selectedGameType == 'Matching') {
                       response =
-                          await generateMatchingPairsFromText(
-                        text,
-                        aiModel,
-                        difficulty: (_selectedDifficulty ?? 'Medium').toLowerCase(),
-                      );
+                          await generateMatchingPairsFromText(text, aiModel);
                     } else if (_selectedGameType == 'Flashcards') {
                       response =
-                          await generateFlashcardsFromText(
-                        text,
-                        aiModel,
-                        difficulty: (_selectedDifficulty ?? 'Medium').toLowerCase(),
-                      );
+                          await generateFlashcardsFromText(text, aiModel);
                     } else {
                       throw Exception("Unknown game type: $_selectedGameType");
                     }
@@ -629,21 +628,22 @@ class _GamificationViewState extends State<GamificationView> {
 
                       final List<Map<String, dynamic>> gameData =
                           _generatedGameData ?? [];
+                      final settings = _buildGameSettings();
 
                       switch (_selectedGameType) {
                         case 'Quiz Game':
                           previewContent = QuizGame(
                             questions: gameData,
+                            settings: settings,
                             onComplete: (_) {},
                             previewMode: true,
-                            settings: _buildGameSettings(),
                           );
                         case 'Matching':
                           previewContent = MatchingGame(
                             pairs: gameData,
+                            settings: settings,
                             onComplete: (_) {},
                             previewMode: true,
-                            settings: _buildGameSettings(),
                           );
                         case 'Flashcards':
                           previewContent = FlashcardGame(
@@ -656,7 +656,7 @@ class _GamificationViewState extends State<GamificationView> {
                       }
 
                       return AlertDialog(
-                        title: const Text('Game Preview'),
+                        title: Text(_defaultGeneratedTitle()),
                         content: SizedBox(width: 600, child: previewContent),
                         actions: [
                           TextButton(
@@ -799,6 +799,8 @@ class _GamificationViewState extends State<GamificationView> {
                   DateFormat.yMMMd().format(game.assignedDate);
               final courseName = _courseNameCache[game.courseId];
               final gameTypeLabel = _labelForGameType(game.gameType);
+              final content = _decodeGameData(game.gameData);
+              final description = content?['description']?.toString().trim();
               final titleText = courseName != null && courseName.isNotEmpty
                   ? '$courseName: $gameTypeLabel'
                   : '${game.title}: $gameTypeLabel';
@@ -810,13 +812,10 @@ class _GamificationViewState extends State<GamificationView> {
                   .contains(courseName.toLowerCase())) {
                 subtitleParts.add(game.title);
               }
-              subtitleParts.add('📅 Assigned: $formattedDate');
-              final decodedSettings = _decodeGameData(game.gameData)?['settings'];
-              if (decodedSettings is Map) {
-                subtitleParts.add(_describeSettings(
-                  decodedSettings.map((key, value) => MapEntry(key.toString(), value)),
-                ));
+              if (description != null && description.isNotEmpty) {
+                subtitleParts.add(description);
               }
+              subtitleParts.add('📅 Assigned: $formattedDate');
               return Card(
                 color: Colors.deepPurple[50],
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -851,12 +850,11 @@ class _GamificationViewState extends State<GamificationView> {
 
                       final type =
                           _parseGameType(content['gameType'] ?? game.gameType);
+                      final settings = GameSettings.fromJson(
+                          content['settings'] as Map<String, dynamic>?);
                       final List<Map<String, dynamic>> data =
                           List<Map<String, dynamic>>.from(
                               content['data'] ?? const []);
-                      final settings = Map<String, dynamic>.from(
-                        content['settings'] ?? const {},
-                      );
 
                       if (data.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -872,20 +870,20 @@ class _GamificationViewState extends State<GamificationView> {
                         case GameType.QUIZ:
                           gameView = QuizGame(
                             questions: data,
+                            settings: settings,
                             onComplete: (result) {
                               _recordGameResult(game, result);
                             },
                             previewMode: false,
-                            settings: settings,
                           );
                         case GameType.MATCHING:
                           gameView = MatchingGame(
                             pairs: data,
+                            settings: settings,
                             onComplete: (result) {
                               _recordGameResult(game, result);
                             },
                             previewMode: false,
-                            settings: settings,
                           );
                         case GameType.FLASHCARD:
                           gameView = FlashcardGame(
@@ -896,7 +894,6 @@ class _GamificationViewState extends State<GamificationView> {
                                 GamePlayResult(
                                   score: data.length,
                                   maxScore: data.length,
-                                  earnedPoints: data.length * _basePoints,
                                 ),
                               );
                             },
@@ -933,43 +930,50 @@ class _GamificationViewState extends State<GamificationView> {
   /// { "question": "...", "options": ["A","B","C","D"], "answer": <index> }
   Future<List<Map<String, dynamic>>> generateGameFromText(
       String text, LLM aiModel,
-      {int questionCount = 5, String difficulty = 'medium'}) async {
+      {int questionCount = 5}) async {
+    final requestedDifficulty = (_selectedDifficulty ?? 'Medium').toLowerCase();
     final systemPrompt =
-        'You are an educational game designer. From the given text, generate exactly $questionCount multiple-choice questions at a $difficulty difficulty level. '
+        'You are an educational game designer. From the given text, generate exactly $questionCount multiple-choice questions. '
+        'Match the overall difficulty to $requestedDifficulty. '
         'Respond with a VALID JSON ARRAY ONLY (no extra text) where each item has: '
-        '{"question": "...", "options": ["optA", "optB", "optC", "optD"], "answer": <index>, "difficulty": "$difficulty"} '
-        'The "answer" should be the index (0-3) of the correct option.\n\n'
+        '{"question": "...", "options": ["optA", "optB", "optC", "optD"], "answer": <index>, "difficulty": "easy|medium|hard"} '
+        'The "answer" should be the index (0-3) of the correct option. Every question must include exactly 4 options and a valid difficulty value.\n\n'
         'Input: $text';
 
     final raw = await aiModel.postToLlm(systemPrompt);
-    // Clean and isolate valid JSON from AI output
-    String cleaned = raw
-        .replaceAll(RegExp(r'```json', multiLine: true), '')
-        .replaceAll(RegExp(r'```', multiLine: true), '')
-        .trim();
-
-    // Extract only the first valid JSON array to avoid extra text
-    final match = RegExp(r'\[\s*{[\s\S]*?}\s*\]').firstMatch(cleaned);
-    if (match != null) {
-      cleaned = match.group(0)!;
-    }
-
+    final cleaned = _extractFirstJsonArray(raw);
     final gamesCollection = FirebaseFirestore.instance.collection('Games');
 
-    // Parse the results into a list
     try {
       final parsedList = _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
-        if (item is Map) return Map<String, dynamic>.from(item);
-        throw Exception('Item is not an object');
+        if (item is! Map) {
+          throw Exception('Item is not an object');
+        }
+        final map = Map<String, dynamic>.from(item);
+        final options =
+            (map['options'] as List?)?.map((e) => e.toString()).toList() ??
+                const <String>[];
+        final answer = int.tryParse(map['answer'].toString());
+        if (options.length != 4) {
+          throw Exception('Each quiz question must include exactly 4 options.');
+        }
+        if (answer == null || answer < 0 || answer >= options.length) {
+          throw Exception('Question answer index is invalid.');
+        }
+        map['options'] = options;
+        map['answer'] = answer;
+        final difficulty = map['difficulty']?.toString().toLowerCase();
+        map['difficulty'] = (difficulty == 'easy' ||
+                difficulty == 'medium' ||
+                difficulty == 'hard')
+            ? difficulty
+            : requestedDifficulty;
+        return map;
       });
 
-      List<String> allWords = text.split(" ");
-      // TODO: Create a field to get a game title (not generated)
-      String gameTitle = allWords.sublist(0, 3).join(" ");
-      String gameName = "Game - $gameTitle";
-      // Add the game to the FirebaseFirestore for storage
-      await gamesCollection.doc(gameName).set({
-        'title': gameTitle,
+      await gamesCollection.doc(_defaultGeneratedTitle()).set({
+        'title': _defaultGeneratedTitle(),
+        'description': _defaultGeneratedDescription(),
         'questions': parsedList,
       });
 
@@ -984,9 +988,9 @@ class _GamificationViewState extends State<GamificationView> {
   /// Generate flashcards: returns List<Map<String,String>> with {"term","definition"}
   Future<List<Map<String, String>>> generateFlashcardsFromText(
       String text, LLM aiModel,
-      {int cardCount = 5, String difficulty = 'medium'}) async {
+      {int cardCount = 5}) async {
     final systemPrompt = '''
-You are an educational assistant. Analyze the following input content and generate exactly $cardCount educational flashcards at a $difficulty difficulty level.
+You are an educational assistant. Analyze the following input content and generate exactly $cardCount educational flashcards.
 
 Each flashcard must contain:
 - "term": a keyword or phrase that will be on side A
@@ -1006,12 +1010,7 @@ $text
 
     final raw = await aiModel.postToLlm(systemPrompt);
     print('🧪 RAW Flashcard JSON: $raw');
-    // Extract only the first valid JSON array to avoid malformed multi-array issues
-    final match = RegExp(r'\[\s*{[\s\S]*?}\s*\]').firstMatch(raw);
-    final safeJson = match?.group(0);
-    if (safeJson == null) {
-      throw Exception("Failed to extract JSON array from response:\n$raw");
-    }
+    final safeJson = _extractFirstJsonArray(raw);
 
     try {
       final parsedList = _parseJsonList<Map<String, String>>(safeJson, (item) {
@@ -1032,9 +1031,9 @@ $text
   /// Generate matching pairs: returns List<Map<String,String>> with {"term","match"}
   Future<List<Map<String, String>>> generateMatchingPairsFromText(
       String text, LLM aiModel,
-      {int pairCount = 5, String difficulty = 'medium'}) async {
+      {int pairCount = 5}) async {
     final systemPrompt = '''
-You are an educational assistant. From the given lesson text, extract exactly $pairCount concept-definition pairs as a matching game at a $difficulty difficulty level.
+You are an educational assistant. From the given lesson text, extract exactly $pairCount concept-definition pairs as a matching game.
 
 Each item must be a JSON object with:
 - "term": a keyword or concept
@@ -1053,12 +1052,7 @@ $text
 ''';
 
     final raw = await aiModel.postToLlm(systemPrompt);
-    // Extract only the first valid JSON array to avoid malformed multi-array issues
-    final match = RegExp(r'\[\s*{[\s\S]*?}\s*\]').firstMatch(raw);
-    final safeJson = match?.group(0);
-    if (safeJson == null) {
-      throw Exception("Failed to extract JSON array from response:\n$raw");
-    }
+    final safeJson = _extractFirstJsonArray(raw);
 
     try {
       final parsedList = _parseJsonList<Map<String, String>>(safeJson, (item) {
@@ -1128,6 +1122,7 @@ $text
   // Assign game to all students in a course, preventing duplicate global assignments
   Future<bool> assignGameToAllStudents(
     String title,
+    String description,
     String gameType,
     int courseId, {
     Set<int>? specificStudentIds,
@@ -1168,10 +1163,13 @@ $text
 
     final now = DateTime.now();
     final gameTypeEnum = _gameTypeFromLabel(gameType);
+    final settings = _buildGameSettings();
     final contentPayload = jsonEncode({
+      'title': title,
+      'description': description,
       'gameType': gameType,
+      'settings': settings.toJson(),
       'data': _generatedGameData ?? [],
-      'settings': _buildGameSettings(),
     });
 
     try {
@@ -1186,7 +1184,13 @@ $text
       );
       final gameResponse = await _gamificationService.createGame(assignedGame);
       final responseBody = jsonDecode(gameResponse.body);
-      final gameId = responseBody[0]["game_id"];
+      final gameId = responseBody is List && responseBody.isNotEmpty
+          ? responseBody.first["game_id"]
+          : responseBody["game_id"];
+      if (gameId == null) {
+        throw Exception(
+            'Game was created, but no game id was returned by the server.');
+      }
 
       await Future.wait(targetStudents.map((student) {
         return _gamificationService
@@ -1384,11 +1388,13 @@ $text
                             return;
                           }
 
-                          final title = 'Generated Game: $selectedGameType';
+                          final title = _defaultGeneratedTitle();
+                          final description = _defaultGeneratedDescription();
                           final gameType = selectedGameType ?? 'Unknown';
                           final courseId = selectedCourseId!;
                           final didAssign = await assignGameToAllStudents(
                             title,
+                            description,
                             gameType,
                             courseId,
                             specificStudentIds: selectedStudentIds,
@@ -1587,7 +1593,7 @@ $text
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Score saved: ${(normalizedScore * 100).toStringAsFixed(0)}% • ${result.earnedPoints} pts',
+            'Score saved: ${(normalizedScore * 100).toStringAsFixed(0)}%',
           ),
         ),
       );
