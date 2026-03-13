@@ -975,6 +975,7 @@ class _GamificationViewState extends State<GamificationView> {
         'title': _defaultGeneratedTitle(),
         'description': _defaultGeneratedDescription(),
         'questions': parsedList,
+        'difficulty': _selectedDifficulty,
       });
 
       print('✅ Game generated and added to Firebase: $parsedList');

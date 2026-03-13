@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
+import 'package:learninglens_app/Games/timed_quiz_game.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
 
 class ViewGamesList extends StatefulWidget {
@@ -136,7 +137,9 @@ class _GameListState extends State<ViewGamesList> {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           return {
             'title': data['title'],
+            'questions': data['questions'],
             'description': 'Description that is relatively long and big and things',
+            'difficulty': data['difficulty'] ?? 'N/A',
             'icon': Icons.gamepad_outlined,
           };
         }).toList();
@@ -154,9 +157,23 @@ class _GameListState extends State<ViewGamesList> {
                 child: NavigationCard(
                   title: data['title'], 
                   description: data['description'], 
-                  icon: data['icon'], 
-                  // TODO: Replace this with function to start the game
-                  onPressed: () => print("TEST")))).toList(),
+                  icon: data['icon'],
+                  onPressed: () => Navigator.push(
+                    context, 
+                    MaterialPageRoute(
+                      builder: 
+                        (context) => TimedQuizGame(
+                          gameTitle: data['title'],
+                          questions: List<Map<String, dynamic>>.from(
+                            data['questions'] ?? const []
+                          ),
+                          difficulty: data['difficulty'],
+                        )
+                    )
+                  )
+                )
+              )
+            ).toList(),
           ),
         );
       },
