@@ -138,7 +138,7 @@ class _GameListState extends State<ViewGamesList> {
           return {
             'title': data['title'],
             'questions': data['questions'],
-            'description': 'Description that is relatively long and big and things',
+            'description': data['description'] ?? 'No description provided.',
             'difficulty': data['difficulty'] ?? 'N/A',
             'icon': Icons.gamepad_outlined,
           };
