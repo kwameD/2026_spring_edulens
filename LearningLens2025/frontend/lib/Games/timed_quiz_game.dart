@@ -4,17 +4,20 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
+import 'package:learninglens_app/Games/view_games_menu.dart';
 
 class TimedQuizGame extends StatefulWidget {
   final String gameTitle;
   final List<Map<String, dynamic>> questions;
   final String difficulty;
+  final String gameDescription;
 
   const TimedQuizGame ({
     super.key,
     required this.gameTitle,
     required this.questions,
     required this.difficulty,
+    required this.gameDescription,
   });
   
   @override
@@ -39,6 +42,7 @@ class _TimedGameState extends State<TimedQuizGame> {
   String? _selectedOption;
   String? _correctAnswer;
   bool _isAnswered = false;
+  int _totalCorrectAnswers = 0;
 
   /// Function to handle starting the timer based on the secondsRemaining value.
   /// This counts down each second, and at 0, moves on to the next question, or
@@ -92,6 +96,7 @@ class _TimedGameState extends State<TimedQuizGame> {
       _startTimer(transitionTime); // Start transition timer
       if (_correctAnswer == selectedOption) {
         _totalPointsEarned += pointsEarned;
+        _totalCorrectAnswers++;
       }
     });
   }
@@ -139,6 +144,9 @@ class _TimedGameState extends State<TimedQuizGame> {
           Text(
             'Start the game: ${widget.gameTitle}',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)
+          ),
+          Text(
+            'Description: ${widget.gameDescription}'
           ),
           Text (
             'Number of Questions: $numOfQuestions'
@@ -267,8 +275,38 @@ class _TimedGameState extends State<TimedQuizGame> {
   // TODO: Add the game results to the firebase leaderboard
   /// This builds the results screen.
   Widget _buildResultsScreen(BuildContext context) {
+    int totalQuestions = widget.questions.length;
+    
     return SingleChildScrollView(
-      child: Text("Total Points Earned: $_totalPointsEarned"),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Quiz Completed!",
+              style: TextStyle(fontSize: 30, color: Colors.green),
+            ),
+            SizedBox(height: 40),
+            Text(
+              "Total Points Earned: $_totalPointsEarned/${totalQuestions * 100}",
+              style: TextStyle(fontSize: 22),
+            ),
+            SizedBox(height: 40),
+            Text(
+              "Correctly answered $_totalCorrectAnswers/$totalQuestions questions",
+              style: TextStyle(fontSize: 22),
+            ),
+            SizedBox(height: 40),
+            ElevatedButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ViewGamesList())
+              ), 
+              child: const Text("Return back to games")
+            )
+          ],
+        )
+      )
     );
   }
 }

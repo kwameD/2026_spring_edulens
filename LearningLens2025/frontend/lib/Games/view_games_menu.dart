@@ -168,6 +168,7 @@ class _GameListState extends State<ViewGamesList> {
                             data['questions'] ?? const []
                           ),
                           difficulty: data['difficulty'],
+                          gameDescription: data['description'],
                         )
                     )
                   )
