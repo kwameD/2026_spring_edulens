@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'game_result.dart';
@@ -6,16 +8,18 @@ class MatchingGame extends StatefulWidget {
   final List<Map<String, dynamic>> pairs;
   final void Function(GamePlayResult result) onComplete;
   final bool previewMode;
+  final GameSettings settings;
 
   const MatchingGame({
     super.key,
     required this.pairs,
     required this.onComplete,
     this.previewMode = false,
+    this.settings = const GameSettings(),
   });
 
   @override
-  _MatchingGameState createState() => _MatchingGameState();
+  State<MatchingGame> createState() => _MatchingGameState();
 }
 
 class _MatchingGameState extends State<MatchingGame> {
@@ -27,12 +31,40 @@ class _MatchingGameState extends State<MatchingGame> {
   bool gameFinished = false;
   List<Map<String, String>> results = [];
   bool _completionReported = false;
+  Timer? _timer;
+  int _timeRemaining = 0;
 
   @override
   void initState() {
     super.initState();
     debugPrint('📦 MatchingGame received pairs: ${widget.pairs}');
     initializeGame();
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    if (widget.settings.roundTimeSeconds <= 0) return;
+
+    _timeRemaining = widget.settings.roundTimeSeconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || gameFinished) return;
+
+      if (_timeRemaining <= 1) {
+        timer.cancel();
+        _submitAnswers(forceFinish: true);
+        return;
+      }
+
+      setState(() {
+        _timeRemaining--;
+      });
+    });
   }
 
   void initializeGame() {
@@ -40,6 +72,10 @@ class _MatchingGameState extends State<MatchingGame> {
       debugPrint('⚠️ No pairs received.');
       return;
     }
+
+    leftItems.clear();
+    rightItems.clear();
+    correctMatches.clear();
 
     for (final pair in widget.pairs) {
       final term = pair['term'];
@@ -72,52 +108,116 @@ class _MatchingGameState extends State<MatchingGame> {
   }
 
   void _reportCompletion() {
-    if (_completionReported || widget.previewMode) return;
+    if (_completionReported) return;
+
     _completionReported = true;
+
+    final maxScore = leftItems.length * widget.settings.basePoints +
+        (widget.settings.roundTimeSeconds > 0
+            ? widget.settings.roundTimeSeconds * widget.settings.timeBonus
+            : 0);
+
     widget.onComplete(
       GamePlayResult(
         score: score,
-        maxScore: leftItems.length,
+        maxScore: maxScore,
       ),
     );
   }
 
-  bool isGameComplete() {
-    return userMatches.length == leftItems.length &&
-        userMatches.entries
-            .every((entry) => correctMatches[entry.key] == entry.value);
+  void _submitAnswers({bool forceFinish = false}) {
+    if (gameFinished) return;
+
+    _timer?.cancel();
+    score = 0;
+    results.clear();
+
+    for (final term in leftItems) {
+      final selected = userMatches[term];
+      final correctAnswer = correctMatches[term] ?? '';
+      final isCorrect = selected != null && selected == correctAnswer;
+
+      if (isCorrect) {
+        score += widget.settings.basePoints;
+      }
+
+      results.add({
+        'term': term,
+        'selected': selected ?? 'No answer',
+        'correct': correctAnswer,
+        'status': isCorrect ? '✅ Correct' : '❌ Incorrect',
+      });
+    }
+
+    if (widget.settings.roundTimeSeconds > 0 &&
+        !forceFinish) {
+      score += _timeRemaining * widget.settings.timeBonus;
+    }
+
+    setState(() {
+      gameFinished = true;
+    });
+
+    _reportCompletion();
   }
 
   @override
   Widget build(BuildContext context) {
     if (gameFinished) {
       _reportCompletion();
+
       return SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Game Complete!',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            Text('Score: $score / ${leftItems.length}',
-                style: const TextStyle(fontSize: 16)),
+            Text(
+              'Score: $score',
+              style: const TextStyle(fontSize: 16),
+            ),
             const SizedBox(height: 20),
-            ...results.map((r) => ListTile(
-                  title: Text(r['term'] ?? ''),
-                  subtitle: Text(
-                      'Your Match: ${r['selected']}\nCorrect: ${r['correct']}'),
-                  trailing: Text(r['status'] ?? ''),
-                )),
+            ...results.map(
+              (r) => ListTile(
+                title: Text(r['term'] ?? ''),
+                subtitle: Text(
+                  'Your Match: ${r['selected']}\nCorrect: ${r['correct']}',
+                ),
+                trailing: Text(r['status'] ?? ''),
+              ),
+            ),
             const SizedBox(height: 20),
           ],
         ),
       );
     }
+
     return SingleChildScrollView(
       child: Column(
         children: [
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(
+                label: Text('Mode: ${widget.settings.mode.toUpperCase()}'),
+              ),
+              if (widget.settings.roundTimeSeconds > 0)
+                Chip(
+                  label: Text('Time: ${_timeRemaining}s'),
+                ),
+              Chip(
+                label: Text(
+                  'Difficulty: ${widget.settings.difficulty.toUpperCase()}',
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           const Text(
             'Drag a term to its matching definition.',
@@ -134,7 +234,6 @@ class _MatchingGameState extends State<MatchingGame> {
             height: 400,
             child: Row(
               children: [
-                // Left side: draggable terms
                 Expanded(
                   child: ListView.builder(
                     itemCount: leftItems.length,
@@ -142,6 +241,7 @@ class _MatchingGameState extends State<MatchingGame> {
                     itemBuilder: (context, index) {
                       final term = leftItems[index];
                       final isMatched = userMatches.containsKey(term);
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Draggable<String>(
@@ -150,8 +250,10 @@ class _MatchingGameState extends State<MatchingGame> {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               color: Colors.blueAccent,
-                              child: Text(term,
-                                  style: const TextStyle(color: Colors.white)),
+                              child: Text(
+                                term,
+                                style: const TextStyle(color: Colors.white),
+                              ),
                             ),
                           ),
                           childWhenDragging: Opacity(
@@ -190,10 +292,7 @@ class _MatchingGameState extends State<MatchingGame> {
                     },
                   ),
                 ),
-
                 const VerticalDivider(),
-
-                // Right side: drop targets for definitions
                 Expanded(
                   child: ListView.builder(
                     itemCount: rightItems.length,
@@ -201,10 +300,12 @@ class _MatchingGameState extends State<MatchingGame> {
                     itemBuilder: (context, index) {
                       final definition = rightItems[index];
                       final matchedTerm = _matchedTermForDefinition(definition);
+
                       return DragTarget<String>(
                         builder: (context, candidateData, rejectedData) {
                           final isDropping = candidateData.isNotEmpty;
                           final hasMatch = matchedTerm != null;
+
                           return GestureDetector(
                             onTap: hasMatch
                                 ? () {
@@ -238,13 +339,16 @@ class _MatchingGameState extends State<MatchingGame> {
                             ),
                           );
                         },
-                        onAccept: (term) {
+                        onAcceptWithDetails: (details) {
+                          final term = details.data;
                           setState(() {
                             final existingTerm =
                                 _matchedTermForDefinition(definition);
+
                             if (existingTerm != null) {
                               userMatches.remove(existingTerm);
                             }
+
                             userMatches.remove(term);
                             userMatches[term] = definition;
                           });
@@ -259,28 +363,7 @@ class _MatchingGameState extends State<MatchingGame> {
           const SizedBox(height: 20),
           if (!gameFinished)
             ElevatedButton(
-              onPressed: () {
-                if (gameFinished) return;
-
-                score = 0;
-                results.clear();
-
-                for (var entry in userMatches.entries) {
-                  final correct = correctMatches[entry.key] == entry.value;
-                  if (!widget.previewMode && correct) score++;
-                  results.add({
-                    'term': entry.key,
-                    'selected': entry.value,
-                    'correct': correctMatches[entry.key] ?? '',
-                    'status': correct ? '✅ Correct' : '❌ Incorrect'
-                  });
-                }
-
-                setState(() {
-                  gameFinished = true;
-                });
-                _reportCompletion();
-              },
+              onPressed: _submitAnswers,
               child: const Text('Submit Answers'),
             ),
         ],

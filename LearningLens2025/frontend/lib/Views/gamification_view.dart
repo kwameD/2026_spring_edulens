@@ -51,6 +51,18 @@ class _GamificationViewState extends State<GamificationView> {
   final Map<int, String> _studentNameCache = {};
   bool _isClearingAssignments = false;
   bool _coursesLoaded = false;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _roundTimeController =
+      TextEditingController(text: '30');
+  final TextEditingController _basePointsController =
+      TextEditingController(text: '100');
+  final TextEditingController _timeBonusController =
+      TextEditingController(text: '5');
+  final TextEditingController _streakBonusController =
+      TextEditingController(text: '25');
+  bool _adaptiveDifficultyEnabled = false;
+  String _selectedMode = 'Solo';
 
   @override
   void initState() {
@@ -58,6 +70,94 @@ class _GamificationViewState extends State<GamificationView> {
     _selectedLLM = LlmType.values
         .firstWhereOrNull((llm) => LocalStorageService.userHasLlmKey(llm));
     _refreshAssignments();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _roundTimeController.dispose();
+    _basePointsController.dispose();
+    _timeBonusController.dispose();
+    _streakBonusController.dispose();
+    super.dispose();
+  }
+
+  GameSettings _buildGameSettings() {
+    return GameSettings(
+      roundTimeSeconds: int.tryParse(_roundTimeController.text.trim()) ?? 0,
+      basePoints: int.tryParse(_basePointsController.text.trim()) ?? 100,
+      timeBonus: int.tryParse(_timeBonusController.text.trim()) ?? 0,
+      streakBonus: int.tryParse(_streakBonusController.text.trim()) ?? 0,
+      adaptiveDifficulty: _adaptiveDifficultyEnabled,
+      difficulty: (_selectedDifficulty ?? 'Medium').toLowerCase(),
+      mode: _selectedMode.toLowerCase(),
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+    );
+  }
+
+  int _safePositiveInt(String value, int fallback) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed < 0) return fallback;
+    return parsed;
+  }
+
+  String _defaultGeneratedTitle() {
+    final explicit = _titleController.text.trim();
+    if (explicit.isNotEmpty) return explicit;
+    final gameType = _selectedGameType ?? 'Game';
+    return 'Generated $gameType';
+  }
+
+  String _defaultGeneratedDescription() {
+    final explicit = _descriptionController.text.trim();
+    if (explicit.isNotEmpty) return explicit;
+    return 'Auto-generated from ${_selectedFile?.name ?? 'uploaded class material'}.';
+  }
+
+  String _extractFirstJsonArray(String raw) {
+    var cleaned = raw
+        .replaceAll(RegExp(r'```json', multiLine: true), '')
+        .replaceAll(RegExp(r'```', multiLine: true), '')
+        .trim();
+
+    final start = cleaned.indexOf('[');
+    if (start == -1) {
+      throw Exception('No JSON array found in model response.');
+    }
+
+    int depth = 0;
+    bool inString = false;
+    bool escaping = false;
+    for (int i = start; i < cleaned.length; i++) {
+      final ch = cleaned[i];
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+      if (ch == '\\') {
+        escaping = true;
+        continue;
+      }
+      if (ch == '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (ch == '[') depth++;
+      if (ch == ']') {
+        depth--;
+        if (depth == 0) {
+          cleaned = cleaned.substring(start, i + 1);
+          cleaned = cleaned.replaceAll(RegExp(r',\s*([\]}])'), r'$1');
+          return cleaned;
+        }
+      }
+    }
+
+    throw Exception(
+        'Could not isolate a complete JSON array from the model response.');
   }
 
   void showLoadingDialog(BuildContext context) {
@@ -146,7 +246,9 @@ class _GamificationViewState extends State<GamificationView> {
             ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: (isTeacher && !widget.viewGames) ? _buildTeacherUI(context) : _buildStudentUI(),
+        child: (isTeacher && !widget.viewGames)
+            ? _buildTeacherUI(context)
+            : _buildStudentUI(),
       ),
     );
   }
@@ -207,6 +309,36 @@ class _GamificationViewState extends State<GamificationView> {
               ],
             ),
           ],
+          const SizedBox(height: 24),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              labelText: 'Game Title',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (_) {
+              setState(() {
+                _gameNeedsRefresh = true;
+                _isGameCreated = false;
+              });
+            },
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _descriptionController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Game Description',
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
+            ),
+            onChanged: (_) {
+              setState(() {
+                _gameNeedsRefresh = true;
+                _isGameCreated = false;
+              });
+            },
+          ),
           const SizedBox(height: 30),
           const Text('Select Game Type:', style: TextStyle(fontSize: 18)),
           const SizedBox(height: 10),
@@ -236,6 +368,94 @@ class _GamificationViewState extends State<GamificationView> {
                 },
               );
             }).toList(),
+          ),
+          const SizedBox(height: 30),
+          const Text('Game Mode:', style: TextStyle(fontSize: 18)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            children: ['Solo', 'Team'].map((mode) {
+              return ChoiceChip(
+                label: Text(mode),
+                selected: _selectedMode == mode,
+                onSelected: (_) {
+                  setState(() {
+                    _selectedMode = mode;
+                    _gameNeedsRefresh = true;
+                    _isGameCreated = false;
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 30),
+          const Text('Game Mechanics:', style: TextStyle(fontSize: 18)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _roundTimeController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Round Time (sec)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _basePointsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Base Points',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _timeBonusController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Time Bonus / sec',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 180,
+                child: TextField(
+                  controller: _streakBonusController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Streak Bonus',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Enable adaptive difficulty'),
+            subtitle: const Text(
+              'Quiz questions will adapt around the selected difficulty when supported.',
+            ),
+            value: _adaptiveDifficultyEnabled,
+            onChanged: (value) {
+              setState(() {
+                _adaptiveDifficultyEnabled = value;
+                _gameNeedsRefresh = true;
+                _isGameCreated = false;
+              });
+            },
           ),
           const SizedBox(height: 30),
           const Text('Select LLM Model:', style: TextStyle(fontSize: 18)),
@@ -297,6 +517,23 @@ class _GamificationViewState extends State<GamificationView> {
                   );
                   return;
                 }
+
+                final title = _titleController.text.trim();
+                if (title.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a game title.')),
+                  );
+                  return;
+                }
+
+                _roundTimeController.text =
+                    '${_safePositiveInt(_roundTimeController.text, 0)}';
+                _basePointsController.text =
+                    '${_safePositiveInt(_basePointsController.text, 100)}';
+                _timeBonusController.text =
+                    '${_safePositiveInt(_timeBonusController.text, 0)}';
+                _streakBonusController.text =
+                    '${_safePositiveInt(_streakBonusController.text, 0)}';
 
                 showLoadingDialog(context);
 
@@ -391,17 +628,20 @@ class _GamificationViewState extends State<GamificationView> {
 
                       final List<Map<String, dynamic>> gameData =
                           _generatedGameData ?? [];
+                      final settings = _buildGameSettings();
 
                       switch (_selectedGameType) {
                         case 'Quiz Game':
                           previewContent = QuizGame(
                             questions: gameData,
+                            settings: settings,
                             onComplete: (_) {},
                             previewMode: true,
                           );
                         case 'Matching':
                           previewContent = MatchingGame(
                             pairs: gameData,
+                            settings: settings,
                             onComplete: (_) {},
                             previewMode: true,
                           );
@@ -416,7 +656,7 @@ class _GamificationViewState extends State<GamificationView> {
                       }
 
                       return AlertDialog(
-                        title: const Text('Game Preview'),
+                        title: Text(_defaultGeneratedTitle()),
                         content: SizedBox(width: 600, child: previewContent),
                         actions: [
                           TextButton(
@@ -559,6 +799,8 @@ class _GamificationViewState extends State<GamificationView> {
                   DateFormat.yMMMd().format(game.assignedDate);
               final courseName = _courseNameCache[game.courseId];
               final gameTypeLabel = _labelForGameType(game.gameType);
+              final content = _decodeGameData(game.gameData);
+              final description = content?['description']?.toString().trim();
               final titleText = courseName != null && courseName.isNotEmpty
                   ? '$courseName: $gameTypeLabel'
                   : '${game.title}: $gameTypeLabel';
@@ -569,6 +811,9 @@ class _GamificationViewState extends State<GamificationView> {
                   .toLowerCase()
                   .contains(courseName.toLowerCase())) {
                 subtitleParts.add(game.title);
+              }
+              if (description != null && description.isNotEmpty) {
+                subtitleParts.add(description);
               }
               subtitleParts.add('📅 Assigned: $formattedDate');
               return Card(
@@ -605,6 +850,8 @@ class _GamificationViewState extends State<GamificationView> {
 
                       final type =
                           _parseGameType(content['gameType'] ?? game.gameType);
+                      final settings = GameSettings.fromJson(
+                          content['settings'] as Map<String, dynamic>?);
                       final List<Map<String, dynamic>> data =
                           List<Map<String, dynamic>>.from(
                               content['data'] ?? const []);
@@ -623,6 +870,7 @@ class _GamificationViewState extends State<GamificationView> {
                         case GameType.QUIZ:
                           gameView = QuizGame(
                             questions: data,
+                            settings: settings,
                             onComplete: (result) {
                               _recordGameResult(game, result);
                             },
@@ -631,6 +879,7 @@ class _GamificationViewState extends State<GamificationView> {
                         case GameType.MATCHING:
                           gameView = MatchingGame(
                             pairs: data,
+                            settings: settings,
                             onComplete: (result) {
                               _recordGameResult(game, result);
                             },
@@ -682,42 +931,49 @@ class _GamificationViewState extends State<GamificationView> {
   Future<List<Map<String, dynamic>>> generateGameFromText(
       String text, LLM aiModel,
       {int questionCount = 5}) async {
+    final requestedDifficulty = (_selectedDifficulty ?? 'Medium').toLowerCase();
     final systemPrompt =
         'You are an educational game designer. From the given text, generate exactly $questionCount multiple-choice questions. '
+        'Match the overall difficulty to $requestedDifficulty. '
         'Respond with a VALID JSON ARRAY ONLY (no extra text) where each item has: '
-        '{"question": "...", "options": ["optA", "optB", "optC", "optD"], "answer": <index>} '
-        'The "answer" should be the index (0-3) of the correct option.\n\n'
+        '{"question": "...", "options": ["optA", "optB", "optC", "optD"], "answer": <index>, "difficulty": "easy|medium|hard"} '
+        'The "answer" should be the index (0-3) of the correct option. Every question must include exactly 4 options and a valid difficulty value.\n\n'
         'Input: $text';
 
     final raw = await aiModel.postToLlm(systemPrompt);
-    // Clean and isolate valid JSON from AI output
-    String cleaned = raw
-        .replaceAll(RegExp(r'```json', multiLine: true), '')
-        .replaceAll(RegExp(r'```', multiLine: true), '')
-        .trim();
-
-    // Extract only the first valid JSON array to avoid extra text
-    final match = RegExp(r'\[\s*{[\s\S]*?}\s*\]').firstMatch(cleaned);
-    if (match != null) {
-      cleaned = match.group(0)!;
-    }
-
+    final cleaned = _extractFirstJsonArray(raw);
     final gamesCollection = FirebaseFirestore.instance.collection('Games');
 
-    // Parse the results into a list
     try {
       final parsedList = _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
-        if (item is Map) return Map<String, dynamic>.from(item);
-        throw Exception('Item is not an object');
+        if (item is! Map) {
+          throw Exception('Item is not an object');
+        }
+        final map = Map<String, dynamic>.from(item);
+        final options =
+            (map['options'] as List?)?.map((e) => e.toString()).toList() ??
+                const <String>[];
+        final answer = int.tryParse(map['answer'].toString());
+        if (options.length != 4) {
+          throw Exception('Each quiz question must include exactly 4 options.');
+        }
+        if (answer == null || answer < 0 || answer >= options.length) {
+          throw Exception('Question answer index is invalid.');
+        }
+        map['options'] = options;
+        map['answer'] = answer;
+        final difficulty = map['difficulty']?.toString().toLowerCase();
+        map['difficulty'] = (difficulty == 'easy' ||
+                difficulty == 'medium' ||
+                difficulty == 'hard')
+            ? difficulty
+            : requestedDifficulty;
+        return map;
       });
 
-      List<String> allWords = text.split(" ");
-      // TODO: Create a field to get a game title (not generated)
-      String gameTitle = allWords.sublist(0, 3).join(" ");
-      String gameName = "Game - $gameTitle";
-      // Add the game to the FirebaseFirestore for storage
-      await gamesCollection.doc(gameName).set({
-        'title': gameTitle,
+      await gamesCollection.doc(_defaultGeneratedTitle()).set({
+        'title': _defaultGeneratedTitle(),
+        'description': _defaultGeneratedDescription(),
         'questions': parsedList,
       });
 
@@ -754,12 +1010,7 @@ $text
 
     final raw = await aiModel.postToLlm(systemPrompt);
     print('🧪 RAW Flashcard JSON: $raw');
-    // Extract only the first valid JSON array to avoid malformed multi-array issues
-    final match = RegExp(r'\[\s*{[\s\S]*?}\s*\]').firstMatch(raw);
-    final safeJson = match?.group(0);
-    if (safeJson == null) {
-      throw Exception("Failed to extract JSON array from response:\n$raw");
-    }
+    final safeJson = _extractFirstJsonArray(raw);
 
     try {
       final parsedList = _parseJsonList<Map<String, String>>(safeJson, (item) {
@@ -801,12 +1052,7 @@ $text
 ''';
 
     final raw = await aiModel.postToLlm(systemPrompt);
-    // Extract only the first valid JSON array to avoid malformed multi-array issues
-    final match = RegExp(r'\[\s*{[\s\S]*?}\s*\]').firstMatch(raw);
-    final safeJson = match?.group(0);
-    if (safeJson == null) {
-      throw Exception("Failed to extract JSON array from response:\n$raw");
-    }
+    final safeJson = _extractFirstJsonArray(raw);
 
     try {
       final parsedList = _parseJsonList<Map<String, String>>(safeJson, (item) {
@@ -876,6 +1122,7 @@ $text
   // Assign game to all students in a course, preventing duplicate global assignments
   Future<bool> assignGameToAllStudents(
     String title,
+    String description,
     String gameType,
     int courseId, {
     Set<int>? specificStudentIds,
@@ -916,8 +1163,12 @@ $text
 
     final now = DateTime.now();
     final gameTypeEnum = _gameTypeFromLabel(gameType);
+    final settings = _buildGameSettings();
     final contentPayload = jsonEncode({
+      'title': title,
+      'description': description,
       'gameType': gameType,
+      'settings': settings.toJson(),
       'data': _generatedGameData ?? [],
     });
 
@@ -933,7 +1184,13 @@ $text
       );
       final gameResponse = await _gamificationService.createGame(assignedGame);
       final responseBody = jsonDecode(gameResponse.body);
-      final gameId = responseBody[0]["game_id"];
+      final gameId = responseBody is List && responseBody.isNotEmpty
+          ? responseBody.first["game_id"]
+          : responseBody["game_id"];
+      if (gameId == null) {
+        throw Exception(
+            'Game was created, but no game id was returned by the server.');
+      }
 
       await Future.wait(targetStudents.map((student) {
         return _gamificationService
@@ -1131,11 +1388,13 @@ $text
                             return;
                           }
 
-                          final title = 'Generated Game: $selectedGameType';
+                          final title = _defaultGeneratedTitle();
+                          final description = _defaultGeneratedDescription();
                           final gameType = selectedGameType ?? 'Unknown';
                           final courseId = selectedCourseId!;
                           final didAssign = await assignGameToAllStudents(
                             title,
+                            description,
                             gameType,
                             courseId,
                             specificStudentIds: selectedStudentIds,
