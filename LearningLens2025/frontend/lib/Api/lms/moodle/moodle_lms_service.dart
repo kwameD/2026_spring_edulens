@@ -1105,8 +1105,9 @@ class MoodleLmsService implements LmsInterface {
       body['disability'] = disability.toString();
     }
     if (gradeLevel != null) body['gradeLevel'] = gradeLevel.toString();
-    if (studentKnowledge != null)
+    if (studentKnowledge != null) {
       body['studentKnowledge'] = studentKnowledge.toString();
+    }
     if (iep != null) body['iep'] = iep.toString();
     if (courseId != null) body['courseId'] = courseId.toString();
 
@@ -1117,7 +1118,7 @@ class MoodleLmsService implements LmsInterface {
     if (response.statusCode == 200 && responseData is Map<String, dynamic>) {
       print(responseData);
       //IEP iep = new IEP(overrideId: 0);
-      IEP iep = new IEP(0, 0, 0, 0, '', '', '', '', '');
+      IEP iep = IEP(0, 0, 0, 0, '', '', '', '', '');
       return iep;
       //return 'Override: ${responseData['override_id']}';
     } else {

@@ -32,21 +32,23 @@ class _IepPageState extends State<IepPage> {
   String? selectedCourse;
   String? selectedCourseName;
   String? selectedparticipantName;
-  String? selectedGradeLevel;
-  String? selectedDisability;
   String? iep;
+
+  String? errorMessage;
   int? userId;
   int? courseId;
   String? fullname;
   Future<List<Participant>>? participants;
-  String? dueDate;
   List<Override>? overrides = [];
+
   TextEditingController _dueDateController = TextEditingController();
-  bool _isAIRecommending = false;
   TextEditingController iepSummaryController = TextEditingController();
-  String iepSummary = "";
+  TextEditingController disabilityController = TextEditingController();
+  TextEditingController courseController = TextEditingController();
+  TextEditingController gradeLevelController = TextEditingController();
   TextEditingController iepRecommendation = TextEditingController();
 
+  bool _isAIRecommending = false;
   LlmType? selectedLLM;
   bool _localLlmAvail = !kIsWeb;
   bool canceled = false;
@@ -65,7 +67,7 @@ class _IepPageState extends State<IepPage> {
     "9th grade",
     "10th grade",
     "11th grade",
-    "12h grade",
+    "12th grade",
   ];
   List<String> disabilityCategories = [
     "Autism Spectrum Disorder",
@@ -91,18 +93,28 @@ class _IepPageState extends State<IepPage> {
         .firstWhereOrNull((llm) => LocalStorageService.userHasLlmKey(llm));
   }
 
+  @override
+  void dispose() {
+    _dueDateController.dispose();
+    iepSummaryController.dispose();
+    disabilityController.dispose();
+    courseController.dispose();
+    gradeLevelController.dispose();
+    iepRecommendation.dispose();
+    super.dispose();
+  }
+
   Future<void> _selectDate() async {
-    DateTime? _picked = await showDatePicker(
+    DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
 
-    if (_picked != null) {
+    if (picked != null) {
       setState(() {
-        _dueDateController.text = _picked.toString().split(" ")[0];
-        dueDate = _dueDateController.text;
+        _dueDateController.text = picked.toString().split(" ")[0];
       });
     }
   }
@@ -227,6 +239,7 @@ class _IepPageState extends State<IepPage> {
                       DataColumn(label: Text('Course Name')),
                       DataColumn(label: Text('Grade Level')),
                       DataColumn(label: Text('Disability')),
+                      DataColumn(label: Text('Due Date')),
                       DataColumn(label: Text('Score')),
                       DataColumn(label: Text('Action')),
                     ],
@@ -239,6 +252,7 @@ class _IepPageState extends State<IepPage> {
                           DataCell(Text(data['courseName'] ?? '')),
                           DataCell(Text(data['gradeLevel'] ?? '')),
                           DataCell(Text(data['disability'] ?? '')),
+                          DataCell(Text(data['dueDate'] ?? '')),
                           DataCell(Text(
                             data['score']?.toString() ?? '',
                           )),
@@ -247,7 +261,7 @@ class _IepPageState extends State<IepPage> {
                               onPressed: () {
                                 final docId = doc.id;
 
-                                print("Viewing IEP: $docId");
+                                // print("Viewing IEP: $docId");
 
                                 // Option 1: Navigate to a detail page
                                 // Navigator.push(
@@ -297,6 +311,7 @@ class _IepPageState extends State<IepPage> {
             label: Text('Course'),
             hintText: 'Select Course',
             width: 350,
+            controller: courseController,
             dropdownMenuEntries: (getAllCourses() ?? []).map((Course course) {
               return DropdownMenuEntry<Course>(
                 value: course,
@@ -309,7 +324,6 @@ class _IepPageState extends State<IepPage> {
                 courseId = selectedValue!.id;
               });
               participants = handleSelection(selectedValue?.id.toString());
-              resetForm(true);
             },
           ),
           // end of course select buttoin
@@ -338,6 +352,7 @@ class _IepPageState extends State<IepPage> {
                     // helperText: 'Participants',
                     hintText: 'Select Participants',
                     width: 350,
+                    //controller: participantController,
                     dropdownMenuEntries: dropdownEntries,
                     onSelected: (Participant? selectedParticipant) {
                       setState(() {
@@ -348,7 +363,6 @@ class _IepPageState extends State<IepPage> {
                           print('No Participants were selected');
                         }
                       });
-                      resetForm(true);
                     },
                   );
                 }
@@ -362,17 +376,18 @@ class _IepPageState extends State<IepPage> {
             // helperText: 'Essays',
             hintText: 'Select grade level',
             width: 350,
+            controller: gradeLevelController,
             dropdownMenuEntries: gradeLevel
                 .map((value) => DropdownMenuEntry<String>(
                       value: value,
                       label: value,
                     ))
                 .toList(),
-            onSelected: (String? selectedGrade) {
-              setState(() {
-                selectedGradeLevel = selectedGrade;
-              });
-            },
+            // onSelected: (String? selectedGrade) {
+            //   setState(() {
+            //     selectedGradeLevel = selectedGrade;
+            //   });
+            // },
           ),
           // end of grade level button
           SizedBox(height: 10),
@@ -383,17 +398,18 @@ class _IepPageState extends State<IepPage> {
             // helperText: 'Essays',
             hintText: 'Select disability',
             width: 350,
+            controller: disabilityController,
             dropdownMenuEntries: disabilityCategories
                 .map((value) => DropdownMenuEntry<String>(
                       value: value,
                       label: value,
                     ))
                 .toList(),
-            onSelected: (String? disability) {
-              setState(() {
-                selectedDisability = disability;
-              });
-            },
+            // onSelected: (String? disability) {
+            //   setState(() {
+            //     selectedDisability = disability;
+            //   });
+            // },
           ),
           // end of disability button
           SizedBox(height: 10),
@@ -430,9 +446,10 @@ class _IepPageState extends State<IepPage> {
                     borderRadius: BorderRadius.circular(10),
                   )),
               controller: iepSummaryController,
-              onChanged: (value) => setState(() {
-                iepSummary = value;
-              }),
+              // onChanged: (value) => setState(() {
+              //   iepSummary = value;
+              // }),
+              maxLength: 500,
               textAlignVertical: TextAlignVertical.top,
               keyboardType: TextInputType.multiline,
               minLines: 10,
@@ -502,10 +519,10 @@ class _IepPageState extends State<IepPage> {
               alignment: AlignmentGeometry.topRight,
               child: ElevatedButton(
                 onPressed: userId != null &&
-                        iepSummary.isNotEmpty &&
+                        iepSummaryController.text.isNotEmpty &&
                         selectedLLM != null &&
-                        selectedGradeLevel != null &&
-                        selectedDisability != null &&
+                        gradeLevelController.text.isNotEmpty &&
+                        disabilityController.text.isNotEmpty &&
                         selectedCourseName != null
                     ? () => recommendIEP()
                     : null,
@@ -569,20 +586,50 @@ class _IepPageState extends State<IepPage> {
             padding: EdgeInsets.only(top: 10, left: 160, bottom: 20),
             child: ElevatedButton(
               onPressed: () async {
-                await addIEP(
-                    selectedGradeLevel!,
-                    courseId!,
-                    selectedCourseName!,
-                    userId!,
-                    fullname!,
-                    selectedDisability!,
-                    iepSummary,
-                    iep!,
-                    dueDate!);
-                resetForm(false);
+                // check to see if all fields are filled out
+                if (_dueDateController.text.isNotEmpty &&
+                        iepSummaryController.text.isNotEmpty &&
+                        disabilityController.text.isNotEmpty &&
+                        courseController.text.isNotEmpty &&
+                        gradeLevelController.text.isNotEmpty &&
+                        // participantController.text.isNotEmpty &&
+                        iepRecommendation.text.isNotEmpty
+                    // selectedGradeLevel != null &&
+                    //   courseId != null &&
+                    //   selectedCourseName != null &&
+                    //   userId != null &&
+                    //   fullname != null &&
+                    //   selectedDisability != null &&
+                    //   iepSummary != null &&
+                    //   iep != null &&
+                    //   dueDate != null
+                    ) {
+                  await addIEP(
+                      gradeLevelController.text,
+                      courseId!,
+                      selectedCourseName!,
+                      userId!,
+                      fullname!,
+                      disabilityController.text,
+                      iepSummaryController.text,
+                      iep!,
+                      _dueDateController.text);
+                  resetForm(true);
+                  setState(() {
+                    errorMessage = "";
+                  });
+                } else {
+                  setState(() {
+                    errorMessage = "All fields must be filled out.";
+                  });
+                }
               },
               child: Text('Submit'),
             ),
+          ),
+          Text(
+            errorMessage ?? "",
+            style: TextStyle(color: Colors.red),
           ),
           // end of submit button
         ],
@@ -621,10 +668,17 @@ class _IepPageState extends State<IepPage> {
   void resetForm(bool clearIEPSummary) {
     setState(() {
       if (clearIEPSummary) {
-        iepSummaryController.value = TextEditingValue.empty;
-        iepSummary = "";
+        print(_dueDateController.text);
+        setState(() {
+          _dueDateController.clear();
+          _dueDateController.clear();
+          iepSummaryController.clear();
+          disabilityController.clear();
+          courseController.clear();
+          gradeLevelController.clear();
+          iepRecommendation.clear();
+        });
       }
-      iepRecommendation.value = TextEditingValue.empty;
     });
   }
 
@@ -708,7 +762,7 @@ class _IepPageState extends State<IepPage> {
 
     // prompt that is sent to the llm
     String prompt =
-        "Write an IEP for student $fullname that has $selectedDisability, is in the $selectedGradeLevel, and lives in New York City for $selectedCourseName. This are the things the student already knowns in the subject: $iepSummary. This iep is due on $dueDate";
+        "Write an IEP for student $fullname that has ${disabilityController.text}, is in the ${gradeLevelController.text}, and lives in New York City for $selectedCourseName. This are the things the student already knowns in the subject: ${iepSummaryController.text}. This iep is due on ${_dueDateController.text}";
 
     String summary = "";
 
