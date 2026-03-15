@@ -1,7 +1,7 @@
 class GameSettings {
   final int roundTimeSeconds;
   final int basePoints;
-  final int timeBonus;
+  final int transitionTime;
   final int streakBonus;
   final bool adaptiveDifficulty;
   final String difficulty;
@@ -10,9 +10,9 @@ class GameSettings {
   final String description;
 
   const GameSettings({
-    this.roundTimeSeconds = 0,
+    this.roundTimeSeconds = 20,
     this.basePoints = 100,
-    this.timeBonus = 0,
+    this.transitionTime = 3,
     this.streakBonus = 0,
     this.adaptiveDifficulty = false,
     this.difficulty = 'medium',
@@ -24,9 +24,9 @@ class GameSettings {
   factory GameSettings.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const GameSettings();
     return GameSettings(
-      roundTimeSeconds: _asInt(json['roundTimeSeconds'], fallback: 0),
+      roundTimeSeconds: _asInt(json['roundTimeSeconds'], fallback: 20),
       basePoints: _asInt(json['basePoints'], fallback: 100),
-      timeBonus: _asInt(json['timeBonus'], fallback: 0),
+      transitionTime: _asInt(json['transitionTime'], fallback: 3),
       streakBonus: _asInt(json['streakBonus'], fallback: 0),
       adaptiveDifficulty: json['adaptiveDifficulty'] == true,
       difficulty: (json['difficulty']?.toString().trim().toLowerCase().isNotEmpty ?? false)
@@ -43,7 +43,7 @@ class GameSettings {
   Map<String, dynamic> toJson() => {
         'roundTimeSeconds': roundTimeSeconds,
         'basePoints': basePoints,
-        'timeBonus': timeBonus,
+        'timeBonus': transitionTime,
         'streakBonus': streakBonus,
         'adaptiveDifficulty': adaptiveDifficulty,
         'difficulty': difficulty,

@@ -139,7 +139,10 @@ class _GameListState extends State<ViewGamesList> {
             'title': data['title'],
             'questions': data['questions'],
             'description': data['description'] ?? 'No description provided.',
+            'basePointsPerSec': data['basePointsPerSec'] ?? 5,
             'difficulty': data['difficulty'] ?? 'N/A',
+            'roundTime': data['roundTime'] ?? 20,
+            'transitionTime': data['transitionTime'] ?? 3,
             'icon': Icons.gamepad_outlined,
           };
         }).toList();
@@ -163,12 +166,15 @@ class _GameListState extends State<ViewGamesList> {
                     MaterialPageRoute(
                       builder: 
                         (context) => TimedQuizGame(
+                          basePointsPerSec: data['basePointsPerSec'],
+                          difficulty: data['difficulty'],
                           gameTitle: data['title'],
+                          gameDescription: data['description'],
                           questions: List<Map<String, dynamic>>.from(
                             data['questions'] ?? const []
                           ),
-                          difficulty: data['difficulty'],
-                          gameDescription: data['description'],
+                          roundTime: data['roundTime'],
+                          transitionTime: data['transitionTime'],
                         )
                     )
                   )

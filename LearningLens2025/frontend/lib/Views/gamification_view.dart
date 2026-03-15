@@ -54,13 +54,14 @@ class _GamificationViewState extends State<GamificationView> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _roundTimeController =
-      TextEditingController(text: '30');
+      TextEditingController(text: '20');
   final TextEditingController _basePointsController =
-      TextEditingController(text: '100');
-  final TextEditingController _timeBonusController =
       TextEditingController(text: '5');
+  final TextEditingController _transitionTimeController =
+      TextEditingController(text: '3');
   final TextEditingController _streakBonusController =
       TextEditingController(text: '25');
+  int _numberOfQuestions = 5;
   bool _adaptiveDifficultyEnabled = false;
   String _selectedMode = 'Solo';
 
@@ -78,16 +79,16 @@ class _GamificationViewState extends State<GamificationView> {
     _descriptionController.dispose();
     _roundTimeController.dispose();
     _basePointsController.dispose();
-    _timeBonusController.dispose();
+    _transitionTimeController.dispose();
     _streakBonusController.dispose();
     super.dispose();
   }
 
   GameSettings _buildGameSettings() {
     return GameSettings(
-      roundTimeSeconds: int.tryParse(_roundTimeController.text.trim()) ?? 0,
-      basePoints: int.tryParse(_basePointsController.text.trim()) ?? 100,
-      timeBonus: int.tryParse(_timeBonusController.text.trim()) ?? 0,
+      roundTimeSeconds: int.tryParse(_roundTimeController.text.trim()) ?? 20,
+      basePoints: int.tryParse(_basePointsController.text.trim()) ?? 5,
+      transitionTime: int.tryParse(_transitionTimeController.text.trim()) ?? 3,
       streakBonus: int.tryParse(_streakBonusController.text.trim()) ?? 0,
       adaptiveDifficulty: _adaptiveDifficultyEnabled,
       difficulty: (_selectedDifficulty ?? 'Medium').toLowerCase(),
@@ -254,6 +255,8 @@ class _GamificationViewState extends State<GamificationView> {
   }
 
   Widget _buildTeacherUI(BuildContext context) {
+    final List<int> numOfQuestionsList = [5, 10, 15, 20];
+    
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,6 +398,22 @@ class _GamificationViewState extends State<GamificationView> {
             spacing: 12,
             runSpacing: 12,
             children: [
+              DropdownMenu(
+                width: 180,
+                initialSelection: numOfQuestionsList.first,
+                onSelected: (int? value) {
+                  setState(() {
+                    _numberOfQuestions = value ?? 5;
+                  });
+                },
+                label: const Text('Number of Questions'),
+                dropdownMenuEntries: numOfQuestionsList.map<DropdownMenuEntry<int>>((int value) {
+                  return DropdownMenuEntry(
+                    value: value,
+                    label: value.toString(),
+                  );
+                }).toList(),
+              ),
               SizedBox(
                 width: 180,
                 child: TextField(
@@ -412,7 +431,7 @@ class _GamificationViewState extends State<GamificationView> {
                   controller: _basePointsController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Base Points',
+                    labelText: 'Base Points per Second',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -420,21 +439,10 @@ class _GamificationViewState extends State<GamificationView> {
               SizedBox(
                 width: 180,
                 child: TextField(
-                  controller: _timeBonusController,
+                  controller: _transitionTimeController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Time Bonus / sec',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: _streakBonusController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Streak Bonus',
+                    labelText: 'Transition Time (sec)',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -529,9 +537,9 @@ class _GamificationViewState extends State<GamificationView> {
                 _roundTimeController.text =
                     '${_safePositiveInt(_roundTimeController.text, 0)}';
                 _basePointsController.text =
-                    '${_safePositiveInt(_basePointsController.text, 100)}';
-                _timeBonusController.text =
-                    '${_safePositiveInt(_timeBonusController.text, 0)}';
+                    '${_safePositiveInt(_basePointsController.text, 5)}';
+                _transitionTimeController.text =
+                    '${_safePositiveInt(_transitionTimeController.text, 0)}';
                 _streakBonusController.text =
                     '${_safePositiveInt(_streakBonusController.text, 0)}';
 
@@ -929,11 +937,10 @@ class _GamificationViewState extends State<GamificationView> {
   /// Generate multiple choice quiz questions. Returns list of maps:
   /// { "question": "...", "options": ["A","B","C","D"], "answer": <index> }
   Future<List<Map<String, dynamic>>> generateGameFromText(
-      String text, LLM aiModel,
-      {int questionCount = 5}) async {
+      String text, LLM aiModel) async {
     final requestedDifficulty = (_selectedDifficulty ?? 'Medium').toLowerCase();
     final systemPrompt =
-        'You are an educational game designer. From the given text, generate exactly $questionCount multiple-choice questions. '
+        'You are an educational game designer. From the given text, generate exactly $_numberOfQuestions multiple-choice questions. '
         'Match the overall difficulty to $requestedDifficulty. '
         'Respond with a VALID JSON ARRAY ONLY (no extra text) where each item has: '
         '{"question": "...", "options": ["optA", "optB", "optC", "optD"], "answer": <index>, "difficulty": "easy|medium|hard"} '
@@ -972,10 +979,13 @@ class _GamificationViewState extends State<GamificationView> {
       });
 
       await gamesCollection.doc(_defaultGeneratedTitle()).set({
-        'title': _defaultGeneratedTitle(),
+        'basePointsPerSec': int.tryParse(_basePointsController.text.trim()) ?? 5,
         'description': _defaultGeneratedDescription(),
-        'questions': parsedList,
         'difficulty': _selectedDifficulty,
+        'questions': parsedList,
+        'roundTime': int.tryParse(_roundTimeController.text.trim()) ?? 20,
+        'title': _defaultGeneratedTitle(),
+        'transitionTime': int.tryParse(_transitionTimeController.text.trim()) ?? 3,
       });
 
       print('✅ Game generated and added to Firebase: $parsedList');

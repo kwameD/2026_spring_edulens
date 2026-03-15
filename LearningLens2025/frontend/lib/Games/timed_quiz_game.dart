@@ -7,17 +7,23 @@ import 'package:learninglens_app/Controller/custom_appbar.dart';
 import 'package:learninglens_app/Games/view_games_menu.dart';
 
 class TimedQuizGame extends StatefulWidget {
-  final String gameTitle;
-  final List<Map<String, dynamic>> questions;
+  final int basePointsPerSec;
   final String difficulty;
+  final String gameTitle;
   final String gameDescription;
+  final List<Map<String, dynamic>> questions;
+  final int roundTime;
+  final int transitionTime;
 
   const TimedQuizGame ({
     super.key,
-    required this.gameTitle,
-    required this.questions,
+    required this.basePointsPerSec,
     required this.difficulty,
     required this.gameDescription,
+    required this.gameTitle,
+    required this.questions,
+    required this.roundTime,
+    required this.transitionTime,
   });
   
   @override
@@ -28,8 +34,9 @@ class TimedQuizGame extends StatefulWidget {
 enum GameState {start, playing, results}
 
 class _TimedGameState extends State<TimedQuizGame> {
-  final int answerTime = 20; // The seconds the student has to answer
-  final int transitionTime = 3; // The seconds between each question
+  int get answerTime => widget.roundTime; // The seconds the student has to answer
+  int get transitionTime => widget.transitionTime; // The seconds between each question
+  int get basePointsPerSec => widget.basePointsPerSec; // The poins X seconds multiplier
   
   GameState _state = GameState.start;
   int _totalPointsEarned = 0;
@@ -91,7 +98,7 @@ class _TimedGameState extends State<TimedQuizGame> {
     setState(() {
       _isAnswered = true;
       _selectedOption = selectedOption;
-      int pointsEarned = _secondsRemaining * 5;
+      int pointsEarned = _secondsRemaining * basePointsPerSec;
       _pointsEarned = pointsEarned;
       _startTimer(transitionTime); // Start transition timer
       if (_correctAnswer == selectedOption) {
@@ -135,7 +142,7 @@ class _TimedGameState extends State<TimedQuizGame> {
   /// whole game. The start button is also here to start the game.
   Widget _buildStartScreen(BuildContext context) {
     int numOfQuestions = widget.questions.length;
-    int totalPossPoints = numOfQuestions * 100; // 100 possible points per quesiton
+    int totalPossPoints = numOfQuestions * (basePointsPerSec * answerTime); // 100 possible points per quesiton
     
     return SingleChildScrollView(
       child: Column(
@@ -155,7 +162,13 @@ class _TimedGameState extends State<TimedQuizGame> {
             'Difficulty Level: ${widget.difficulty}'
           ),
           Text(
+            'Point Value Per Second: $basePointsPerSec'
+          ),
+          Text(
             'Total Possible Points: $totalPossPoints'
+          ),
+          Text(
+            'Time to answer each question: ${widget.roundTime} seconds'
           ),
           Center(
             child: ElevatedButton(
@@ -215,7 +228,7 @@ class _TimedGameState extends State<TimedQuizGame> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("${_isAnswered ? 'Next Question In' : 'Time'} : $_secondsRemaining s", style: TextStyle(fontSize: 18, color: Colors.red)),
+              Text("${_isAnswered ? 'Next Question In' : 'Time'}: $_secondsRemaining s", style: TextStyle(fontSize: 18, color: Colors.red)),
               Text("Question: ${currentQuestionIndex + 1}/$totalQuestions", style: TextStyle(fontSize: 18)),
             ],
           ),
@@ -282,13 +295,18 @@ class _TimedGameState extends State<TimedQuizGame> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Icon(
+              Icons.thumb_up_alt_outlined,
+              size: 120,
+            ),
+            SizedBox(height: 20),
             Text(
               "Quiz Completed!",
               style: TextStyle(fontSize: 30, color: Colors.green),
             ),
             SizedBox(height: 40),
             Text(
-              "Total Points Earned: $_totalPointsEarned/${totalQuestions * 100}",
+              "Total Points Earned: $_totalPointsEarned",
               style: TextStyle(fontSize: 22),
             ),
             SizedBox(height: 40),
