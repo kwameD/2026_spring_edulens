@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import "package:flutter/material.dart";
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:learninglens_app/Api/llm/DeepSeek_api.dart';
 import 'package:learninglens_app/Api/llm/enum/llm_enum.dart';
@@ -32,7 +33,6 @@ class _IepPageState extends State<IepPage> {
   String? selectedCourse;
   String? selectedCourseName;
   String? selectedparticipantName;
-  String? iep;
 
   String? errorMessage;
   int? userId;
@@ -42,11 +42,11 @@ class _IepPageState extends State<IepPage> {
   List<Override>? overrides = [];
 
   TextEditingController _dueDateController = TextEditingController();
-  TextEditingController iepSummaryController = TextEditingController();
+  TextEditingController studentKnowledgeController = TextEditingController();
   TextEditingController disabilityController = TextEditingController();
   TextEditingController courseController = TextEditingController();
   TextEditingController gradeLevelController = TextEditingController();
-  TextEditingController iepRecommendation = TextEditingController();
+  TextEditingController iepRecommendationController = TextEditingController();
 
   bool _isAIRecommending = false;
   LlmType? selectedLLM;
@@ -96,11 +96,11 @@ class _IepPageState extends State<IepPage> {
   @override
   void dispose() {
     _dueDateController.dispose();
-    iepSummaryController.dispose();
+    studentKnowledgeController.dispose();
     disabilityController.dispose();
     courseController.dispose();
     gradeLevelController.dispose();
-    iepRecommendation.dispose();
+    iepRecommendationController.dispose();
     super.dispose();
   }
 
@@ -261,7 +261,7 @@ class _IepPageState extends State<IepPage> {
                               onPressed: () {
                                 final docId = doc.id;
 
-                                // print("Viewing IEP: $docId");
+                                print("Viewing IEP: $docId");
 
                                 // Option 1: Navigate to a detail page
                                 // Navigator.push(
@@ -383,11 +383,6 @@ class _IepPageState extends State<IepPage> {
                       label: value,
                     ))
                 .toList(),
-            // onSelected: (String? selectedGrade) {
-            //   setState(() {
-            //     selectedGradeLevel = selectedGrade;
-            //   });
-            // },
           ),
           // end of grade level button
           SizedBox(height: 10),
@@ -405,11 +400,6 @@ class _IepPageState extends State<IepPage> {
                       label: value,
                     ))
                 .toList(),
-            // onSelected: (String? disability) {
-            //   setState(() {
-            //     selectedDisability = disability;
-            //   });
-            // },
           ),
           // end of disability button
           SizedBox(height: 10),
@@ -445,10 +435,7 @@ class _IepPageState extends State<IepPage> {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   )),
-              controller: iepSummaryController,
-              // onChanged: (value) => setState(() {
-              //   iepSummary = value;
-              // }),
+              controller: studentKnowledgeController,
               maxLength: 500,
               textAlignVertical: TextAlignVertical.top,
               keyboardType: TextInputType.multiline,
@@ -519,7 +506,7 @@ class _IepPageState extends State<IepPage> {
               alignment: AlignmentGeometry.topRight,
               child: ElevatedButton(
                 onPressed: userId != null &&
-                        iepSummaryController.text.isNotEmpty &&
+                        studentKnowledgeController.text.isNotEmpty &&
                         selectedLLM != null &&
                         gradeLevelController.text.isNotEmpty &&
                         disabilityController.text.isNotEmpty &&
@@ -559,26 +546,18 @@ class _IepPageState extends State<IepPage> {
               ),
             ),
           ),
+          Text("IEP Preview"),
+          Divider(color: Colors.black),
           // end of iep preview
           // iep recommendation text area
           SizedBox(
             width: 350,
-            child: TextField(
-              decoration: InputDecoration(
-                  alignLabelWithHint: true,
-                  enabled: iepRecommendation.value.text.isNotEmpty,
-                  labelText: "IEP Recommendations",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  )),
-              controller: iepRecommendation,
-              readOnly: true,
-              textAlignVertical: TextAlignVertical.top,
-              keyboardType: TextInputType.multiline,
-              minLines: 10,
-              maxLines: 10,
+            height: 250,
+            child: Markdown(
+              data: iepRecommendationController.text,
             ),
           ),
+          Divider(color: Colors.black),
           // end of iep recommendation text area
           SizedBox(height: 10),
           // submit button
@@ -588,22 +567,12 @@ class _IepPageState extends State<IepPage> {
               onPressed: () async {
                 // check to see if all fields are filled out
                 if (_dueDateController.text.isNotEmpty &&
-                        iepSummaryController.text.isNotEmpty &&
-                        disabilityController.text.isNotEmpty &&
-                        courseController.text.isNotEmpty &&
-                        gradeLevelController.text.isNotEmpty &&
-                        // participantController.text.isNotEmpty &&
-                        iepRecommendation.text.isNotEmpty
-                    // selectedGradeLevel != null &&
-                    //   courseId != null &&
-                    //   selectedCourseName != null &&
-                    //   userId != null &&
-                    //   fullname != null &&
-                    //   selectedDisability != null &&
-                    //   iepSummary != null &&
-                    //   iep != null &&
-                    //   dueDate != null
-                    ) {
+                    studentKnowledgeController.text.isNotEmpty &&
+                    disabilityController.text.isNotEmpty &&
+                    courseController.text.isNotEmpty &&
+                    gradeLevelController.text.isNotEmpty &&
+                    // participantController.text.isNotEmpty &&
+                    iepRecommendationController.text.isNotEmpty) {
                   await addIEP(
                       gradeLevelController.text,
                       courseId!,
@@ -611,8 +580,8 @@ class _IepPageState extends State<IepPage> {
                       userId!,
                       fullname!,
                       disabilityController.text,
-                      iepSummaryController.text,
-                      iep!,
+                      studentKnowledgeController.text,
+                      iepRecommendationController.text,
                       _dueDateController.text);
                   resetForm(true);
                   setState(() {
@@ -627,11 +596,14 @@ class _IepPageState extends State<IepPage> {
               child: Text('Submit'),
             ),
           ),
-          Text(
-            errorMessage ?? "",
-            style: TextStyle(color: Colors.red),
-          ),
           // end of submit button
+          Center(
+            child: Text(
+              errorMessage ?? "",
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+          SizedBox(height: 10),
         ],
       ),
     );
@@ -672,11 +644,11 @@ class _IepPageState extends State<IepPage> {
         setState(() {
           _dueDateController.clear();
           _dueDateController.clear();
-          iepSummaryController.clear();
+          studentKnowledgeController.clear();
           disabilityController.clear();
           courseController.clear();
           gradeLevelController.clear();
-          iepRecommendation.clear();
+          iepRecommendationController.clear();
         });
       }
     });
@@ -762,7 +734,7 @@ class _IepPageState extends State<IepPage> {
 
     // prompt that is sent to the llm
     String prompt =
-        "Write an IEP for student $fullname that has ${disabilityController.text}, is in the ${gradeLevelController.text}, and lives in New York City for $selectedCourseName. This are the things the student already knowns in the subject: ${iepSummaryController.text}. This iep is due on ${_dueDateController.text}";
+        "Write an IEP for student $fullname that has ${disabilityController.text}, is in the ${gradeLevelController.text}, and lives in New York City for $selectedCourseName. This are the things the student already knowns in the subject: ${studentKnowledgeController.text}. This iep is due on ${_dueDateController.text}";
 
     String summary = "";
 
@@ -774,7 +746,6 @@ class _IepPageState extends State<IepPage> {
             await aiModel.postToLlm(HtmlConverter.convert(prompt) ?? "");
 
         summary = result;
-        iep = result;
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error during AI analysis: $e")),
@@ -785,7 +756,7 @@ class _IepPageState extends State<IepPage> {
       _isAIRecommending = false;
       setState(() {
         // display iep on iep recommendation text area
-        iepRecommendation.value = TextEditingValue(text: summary);
+        iepRecommendationController.value = TextEditingValue(text: summary);
       });
     });
   }
