@@ -240,7 +240,6 @@ class _IepPageState extends State<IepPage> {
                       DataColumn(label: Text('Grade Level')),
                       DataColumn(label: Text('Disability')),
                       DataColumn(label: Text('Due Date')),
-                      DataColumn(label: Text('Score')),
                       DataColumn(label: Text('Action')),
                     ],
                     rows: docs.map((doc) {
@@ -253,9 +252,6 @@ class _IepPageState extends State<IepPage> {
                           DataCell(Text(data['gradeLevel'] ?? '')),
                           DataCell(Text(data['disability'] ?? '')),
                           DataCell(Text(data['dueDate'] ?? '')),
-                          DataCell(Text(
-                            data['score']?.toString() ?? '',
-                          )),
                           DataCell(
                             ElevatedButton(
                               onPressed: () {
