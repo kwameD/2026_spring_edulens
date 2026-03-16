@@ -293,11 +293,14 @@ class _TimedGameState extends State<TimedQuizGame> {
     final lmsService = LmsFactory.getLmsService();
     String customId = "${lmsService.fullName}-${widget.gameTitle}";
 
-    leaderboardCollection.doc(customId).set({
-      'student_name': lmsService.fullName,
-      'score': _totalPointsEarned,
-      'game_name': widget.gameTitle,
-    });
+    // Only upload score if it is not 0
+    if (_totalPointsEarned > 0 ) {
+      leaderboardCollection.doc(customId).set({
+        'student_name': lmsService.fullName,
+        'score': _totalPointsEarned,
+        'game_name': widget.gameTitle,
+      });      
+    }
     
     return SingleChildScrollView(
       child: Center(
