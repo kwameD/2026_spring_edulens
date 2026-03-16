@@ -1,6 +1,7 @@
 
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
@@ -284,11 +285,19 @@ class _TimedGameState extends State<TimedQuizGame> {
     );
   }
 
-  // TODO: Build the resuts screen.
-  // TODO: Add the game results to the firebase leaderboard
   /// This builds the results screen.
   Widget _buildResultsScreen(BuildContext context) {
     int totalQuestions = widget.questions.length;
+    
+    final leaderboardCollection = FirebaseFirestore.instance.collection('leaderboard');
+    final lmsService = LmsFactory.getLmsService();
+    String customId = "${lmsService.fullName}-${widget.gameTitle}";
+
+    leaderboardCollection.doc(customId).set({
+      'student_name': lmsService.fullName,
+      'score': _totalPointsEarned,
+      'game_name': widget.gameTitle,
+    });
     
     return SingleChildScrollView(
       child: Center(
