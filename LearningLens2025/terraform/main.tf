@@ -1,16 +1,4 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "6.13.0"
-    }
-  }
-}
-
-provider "aws" {
-  # Configuration options
-  region = "us-east-1"
-}
+# Provider and terraform configuration is in locals.tf
 
 data "aws_ami" "moodle" {
   most_recent = true
@@ -86,13 +74,11 @@ resource "aws_security_group" "moodle_security_group" {
   }
 }
 
-variable "github_token" {
-  type = string
-}
+# Variables are defined in variables.tf
 
 resource "aws_amplify_app" "edulenseweb" {
   name = "EduLenseApp"
-  repository = "https://github.com/rappleb1/2025_fall/"
+  repository = "https://github.com/kwameD/2026_spring_edulens/"
   access_token = var.github_token
   enable_branch_auto_build = true
 
@@ -171,30 +157,36 @@ output "response" {
   value = data.http.deploy.response_body
 }
 
-data "aws_region" "current" {}
+# AWS region data source is defined in locals.tf
 
 resource "aws_ecr_repository" "edulense_program_grader" {
   name = "edulense-program-grader"
 }
 
-resource "null_resource" "build_docker_image" {
-  triggers = {
-    script_hash = sha1(file("../docker/dockerupload.ps1"))
-    docker_hash = sha1(file("../docker/Dockerfile"))
-    runcode_hash = sha1(file("../docker/runcode.sh"))
-    evaluate = sha1(file("../docker/evaluate.py"))
-  }
-  provisioner "local-exec" {
-    working_dir = "../docker/"
-    command = "powershell.exe -ExecutionPolicy Bypass -File ./dockerupload.ps1"
-    environment = {
-      AWS_REGION = data.aws_region.current.region
-      AWS_REPO_URL = aws_ecr_repository.edulense_program_grader.repository_url
-      AWS_REG_ID = aws_ecr_repository.edulense_program_grader.registry_id
-      AWS_NAME = aws_ecr_repository.edulense_program_grader.name
-    }
-  }
-}
+# Docker build provisioner commented out - requires Docker daemon running locally
+# Uncomment and run after Docker is started, or build/push the image manually
+# COMMAND TO BUILD DOCKER IMAGE MANUALLY:
+# cd LearningLens2025/docker/
+# bash dockerupload.sh
+#
+# resource "null_resource" "build_docker_image" {
+#   triggers = {
+#     script_hash = sha1(file("../docker/dockerupload.ps1"))
+#     docker_hash = sha1(file("../docker/Dockerfile"))
+#     runcode_hash = sha1(file("../docker/runcode.sh"))
+#     evaluate = sha1(file("../docker/evaluate.py"))
+#   }
+#   provisioner "local-exec" {
+#     working_dir = "../docker/"
+#     command = "bash ./dockerupload.sh"
+#     environment = {
+#       AWS_REGION = data.aws_region.current.region
+#       AWS_REPO_URL = aws_ecr_repository.edulense_program_grader.repository_url
+#       AWS_REG_ID = aws_ecr_repository.edulense_program_grader.registry_id
+#       AWS_NAME = aws_ecr_repository.edulense_program_grader.name
+#     }
+#   }
+# }
 
 resource "aws_dsql_cluster" "edulense" {
   deletion_protection_enabled = true

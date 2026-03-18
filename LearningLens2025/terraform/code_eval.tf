@@ -94,16 +94,7 @@ resource "aws_iam_role_policy_attachment" "attach_ecs_managed" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Moodle service account username
-variable "moodle_username" {
-  type = string
-}
-
-# Moodle service account password
-variable "moodle_password"{
-  type = string
-  sensitive = true
-}
+# Variables defined in variables.tf
 
 # Run npm install before zipping
 resource "null_resource" "npm_install_code_eval" {
@@ -150,7 +141,7 @@ resource "aws_lambda_function" "code_eval_lambda" {
       AWS_DB_CLUSTER = format("%s.dsql.%s.on.aws", aws_dsql_cluster.edulense.identifier, data.aws_region.current.region)
       MOODLE_USERNAME = var.moodle_username
       MOODLE_PASSWORD = var.moodle_password
-      MOODLE_URL = "http://${aws_instance.moodle_instance.public_dns}"
+      MOODLE_URL = "http://${aws_eip.lb.public_ip}"
       ECS_TASK_NAME = aws_ecs_task_definition.eval_code_task.family
       ECS_CLUSTER_ARN = aws_ecs_cluster.eval_code_cluster.arn
       SUBNET_IDS      = join(",", data.aws_subnets.default.ids)
