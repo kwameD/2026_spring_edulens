@@ -100,8 +100,28 @@ resource "aws_amplify_app" "edulenseweb" {
         build:
           commands:
             - echo "Building Flutter web application"
-            - echo "$ENV_FILE" > .env
-            - export ENV_FILE=
+            - |
+              if [ -n "$ENV_FILE" ]; then
+                printf '%s\n' "$ENV_FILE" > .env
+              else
+                {
+                  printf 'openai_apikey=%s\n' "$openai_apikey"
+                  printf 'MOODLE_USERNAME=%s\n' "$MOODLE_USERNAME"
+                  printf 'MOODLE_PASSWORD=%s\n' "$MOODLE_PASSWORD"
+                  printf 'MOODLE_URL=%s\n' "$MOODLE_URL"
+                  printf 'claudeApiKey=%s\n' "$claudeApiKey"
+                  printf 'perplexity_apikey=%s\n' "$perplexity_apikey"
+                  printf 'grokKey=%s\n' "$grokKey"
+                  printf 'deepseek_apiKey=%s\n' "$deepseek_apiKey"
+                  printf 'GOOGLE_CLIENT_ID=%s\n' "$GOOGLE_CLIENT_ID"
+                  printf 'AI_LOGGING_URL=%s\n' "$AI_LOGGING_URL"
+                  printf 'CODE_EVAL_URL=%s\n' "$CODE_EVAL_URL"
+                  printf 'GAME_URL=%s\n' "$GAME_URL"
+                  printf 'REFLECTIONS_URL=%s\n' "$REFLECTIONS_URL"
+                  printf 'LOCAL_MODEL_DOWNLOAD_URL_PATH=%s\n' "$LOCAL_MODEL_DOWNLOAD_URL_PATH"
+                } > .env
+              fi
+            - unset ENV_FILE
             - flutter build web
       artifacts:
         baseDirectory: LearningLens2025/frontend/build/web/
