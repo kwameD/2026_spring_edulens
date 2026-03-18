@@ -117,6 +117,14 @@ class LocalStorageService {
     return url;
   }
 
+  static String getMoodleProxyUrl() {
+    String url = dotenv.env['MOODLE_PROXY_URL'] ?? '';
+    if (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    return url;
+  }
+
   static String getMoodleToken() {
     String url =
       _prefs.getString('moodleKey') ?? dotenv.env['WS_MOODLE_TOKEN'] ?? '';

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:learninglens_app/Api/lms/lms_interface.dart';
 import 'package:learninglens_app/beans/assignment.dart';
 import 'package:learninglens_app/beans/course.dart';
@@ -75,6 +76,24 @@ class MoodleLmsService implements LmsInterface {
 
   String? get userToken => _userToken;
 
+  String _normalizeBaseUrl(String url) {
+    if (url.endsWith('/')) {
+      return url.substring(0, url.length - 1);
+    }
+    return url;
+  }
+
+  String _resolveApiBaseUrl(String baseURL) {
+    final normalizedBaseUrl = _normalizeBaseUrl(baseURL);
+    final proxyUrl = _normalizeBaseUrl(LocalStorageService.getMoodleProxyUrl());
+
+    if (kIsWeb && proxyUrl.isNotEmpty) {
+      return proxyUrl;
+    }
+
+    return normalizedBaseUrl;
+  }
+
   // ****************************************************************************************
   // Auth / Login
   // ****************************************************************************************
@@ -82,6 +101,7 @@ class MoodleLmsService implements LmsInterface {
   @override
   Future<void> login(String username, String password, String baseURL) async {
     print('Logging in to Moodle...');
+    final requestBaseUrl = _resolveApiBaseUrl(baseURL);
 
     final body = {
       'username': username,
@@ -91,7 +111,7 @@ class MoodleLmsService implements LmsInterface {
 
     // 1) Obtain the token by calling Moodle's login/token.php
     final response = await ApiService()
-        .httpPost(Uri.parse('$baseURL/login/token.php'), body: body);
+        .httpPost(Uri.parse('$requestBaseUrl/login/token.php'), body: body);
 
     if (response.statusCode != 200) {
       throw HttpException(response.body);
@@ -104,7 +124,7 @@ class MoodleLmsService implements LmsInterface {
 
     // Store token locally
     _userToken = data['token'];
-    apiURL = baseURL;
+    apiURL = requestBaseUrl;
 
     // 2) Retrieve user info
     final userinforesponse =

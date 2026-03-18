@@ -48,6 +48,11 @@ output "lambda_reflections_url" {
   value       = aws_lambda_function_url.get_reflections_url.function_url
 }
 
+output "lambda_moodle_proxy_url" {
+  description = "Moodle proxy Lambda function URL"
+  value       = aws_lambda_function_url.get_moodle_proxy_url.function_url
+}
+
 output "s3_bucket_name" {
   description = "S3 bucket name for storage"
   value       = aws_s3_bucket.edulense.id
@@ -107,6 +112,7 @@ output "deployment_instructions" {
        - Game Data: ${aws_lambda_function_url.get_game_data_url.function_url}
        - Code Evaluation: ${aws_lambda_function_url.code_eval_url.function_url}
        - Reflections: ${aws_lambda_function_url.get_reflections_url.function_url}
+       - Moodle Proxy: ${aws_lambda_function_url.get_moodle_proxy_url.function_url}
     
     3. Moodle LMS:
        - URL: http://${aws_eip.lb.public_ip}
