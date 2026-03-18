@@ -21,6 +21,17 @@ function buildTargetUrl(event) {
   return `${moodleBaseUrl}${targetPath}${query}`;
 }
 
+function buildLoginTokenUrl(targetUrl, event) {
+  const params = new URLSearchParams(event.body ?? "");
+  const url = new URL(targetUrl);
+
+  for (const [key, value] of params.entries()) {
+    url.searchParams.set(key, value);
+  }
+
+  return url.toString();
+}
+
 function buildProxyHeaders(event) {
   const headers = {};
   const contentType = event.headers?.["content-type"] ?? event.headers?.["Content-Type"];
@@ -46,8 +57,20 @@ export const handler = async (event) => {
   }
 
   try {
-    const targetUrl = buildTargetUrl(event);
-    const method = event.requestContext?.http?.method ?? "POST";
+    const initialTargetUrl = buildTargetUrl(event);
+    const contentType = event.headers?.["content-type"] ?? event.headers?.["Content-Type"] ?? "";
+    const isLoginTokenRequest = initialTargetUrl.endsWith("/login/token.php");
+    const shouldUseQueryStringLogin =
+      isLoginTokenRequest &&
+      contentType.includes("application/x-www-form-urlencoded") &&
+      !!event.body;
+
+    const targetUrl = shouldUseQueryStringLogin
+      ? buildLoginTokenUrl(initialTargetUrl, event)
+      : initialTargetUrl;
+    const method = shouldUseQueryStringLogin
+      ? "GET"
+      : (event.requestContext?.http?.method ?? "POST");
     const headers = buildProxyHeaders(event);
 
     const response = await fetch(targetUrl, {

@@ -102,16 +102,16 @@ class MoodleLmsService implements LmsInterface {
   Future<void> login(String username, String password, String baseURL) async {
     print('Logging in to Moodle...');
     final requestBaseUrl = _resolveApiBaseUrl(baseURL);
-
-    final body = {
-      'username': username,
-      'password': password,
-      'service': 'moodle_mobile_app'
-    };
+    final tokenUri = Uri.parse('$requestBaseUrl/login/token.php').replace(
+      queryParameters: {
+        'username': username,
+        'password': password,
+        'service': 'moodle_mobile_app',
+      },
+    );
 
     // 1) Obtain the token by calling Moodle's login/token.php
-    final response = await ApiService()
-        .httpPost(Uri.parse('$requestBaseUrl/login/token.php'), body: body);
+    final response = await ApiService().httpGet(tokenUri);
 
     if (response.statusCode != 200) {
       throw HttpException(response.body);

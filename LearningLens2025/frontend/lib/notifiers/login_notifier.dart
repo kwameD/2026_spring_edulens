@@ -39,6 +39,33 @@ class LoginNotifier with ChangeNotifier {
     _loadLoginState(); // Load any saved login state on creation
   }
 
+  String _formatGoogleLoginError(Object error) {
+    final message = error.toString();
+
+    if (message.contains('people.googleapis.com') ||
+        message.contains('People API has not been used') ||
+        message.contains('SERVICE_DISABLED')) {
+      return 'Google login failed: People API is disabled for this Google Cloud project. Enable People API in Google Cloud Console, wait a few minutes, and try again.';
+    }
+
+    if (message.contains('Google hasn\'t verified this app') ||
+        message.contains('This app has not been verified') ||
+        message.contains('app is blocked')) {
+      return 'Google login failed: this OAuth app is not verified for public use. Add your account as a test user or complete Google app verification.';
+    }
+
+    if (message.contains('Access blocked: This app\'s request is invalid') ||
+        message.contains('invalid_request')) {
+      return 'Google login failed: the OAuth client configuration is invalid. Check that you are using a Web application client ID and that your Amplify domain is listed in Authorized JavaScript origins.';
+    }
+
+    if (message.contains('cancelled') || message.contains('canceled')) {
+      return 'Google login was canceled.';
+    }
+
+    return 'Google login failed: ${error.toString()}';
+  }
+
   // ---------------------------------------
   // Load from local storage
   // ---------------------------------------
@@ -129,6 +156,7 @@ class LoginNotifier with ChangeNotifier {
         _role = role;
 
         // Save to local storage
+        LocalStorageService.saveSelectedClassroom(LmsType.MOODLE);
         LocalStorageService.saveMoodleLoginState(_moodleState.isLoggedIn);
         LocalStorageService.saveCredentials(username, password);
         LocalStorageService.saveMoodleUrl(moodleUrl);
@@ -198,6 +226,7 @@ class LoginNotifier with ChangeNotifier {
         _googleState.errorMessage = null;
         _role = role;
         // Save to local storage
+        LocalStorageService.saveSelectedClassroom(LmsType.GOOGLE);
         LocalStorageService.saveUserRole(role);
         LocalStorageService.saveGoogleLoginState(_googleState.isLoggedIn);
         LocalStorageService.saveGoogleAccessToken(
@@ -210,7 +239,7 @@ class LoginNotifier with ChangeNotifier {
       }
     } catch (e) {
       _googleState.isLoggedIn = false;
-      _googleState.errorMessage = "Google login failed: ${e.toString()}";
+      _googleState.errorMessage = _formatGoogleLoginError(e);
     } finally {
       LocalStorageService.saveGoogleLoginState(_googleState.isLoggedIn);
       notifyListeners();

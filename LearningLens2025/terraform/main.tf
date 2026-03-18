@@ -443,3 +443,18 @@ resource "aws_lambda_function_url" "get_moodle_proxy_url" {
     allow_headers = ["content-type", "authorization"]
   }
 }
+
+resource "aws_lambda_permission" "moodle_proxy_function_url" {
+  statement_id           = "AllowPublicInvokeMoodleProxyUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.moodle_proxy.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
+resource "aws_lambda_permission" "moodle_proxy_function_url_invoke" {
+  statement_id  = "AllowPublicInvokeMoodleProxyTf"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.moodle_proxy.function_name
+  principal     = "*"
+}
