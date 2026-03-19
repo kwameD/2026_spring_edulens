@@ -64,6 +64,7 @@ class _GamificationViewState extends State<GamificationView> {
   int _numberOfQuestions = 5;
   bool _adaptiveDifficultyEnabled = false;
   String _selectedMode = 'Solo';
+  Set<int> _selectedStudentIds = {};
 
   @override
   void initState() {
@@ -391,6 +392,19 @@ class _GamificationViewState extends State<GamificationView> {
               );
             }).toList(),
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              ElevatedButton(
+                child: const Text('Assign Game to Students'),
+                onPressed: () {
+                  _showAssignPopup(context);
+                },
+              ),
+              const SizedBox(width: 12),
+              const Text("Assigned to all students if left blank."),
+            ],
+          ),
           const SizedBox(height: 30),
           const Text('Game Mechanics:', style: TextStyle(fontSize: 18)),
           const SizedBox(height: 10),
@@ -675,15 +689,6 @@ class _GamificationViewState extends State<GamificationView> {
                       );
                     },
                   );
-                },
-              ),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: ElevatedButton(
-                child: const Text('Assign Game to Students'),
-                onPressed: () {
-                  _showAssignPopup(context);
                 },
               ),
             ),
@@ -986,6 +991,7 @@ class _GamificationViewState extends State<GamificationView> {
         'roundTime': int.tryParse(_roundTimeController.text.trim()) ?? 20,
         'title': _defaultGeneratedTitle(),
         'transitionTime': int.tryParse(_transitionTimeController.text.trim()) ?? 3,
+        'assignedStudents': _selectedStudentIds,
       });
 
       print('✅ Game generated and added to Firebase: $parsedList');
@@ -1138,14 +1144,6 @@ $text
     int courseId, {
     Set<int>? specificStudentIds,
   }) async {
-    if (_generatedGameData == null || _generatedGameData!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('Please generate the game content before assigning.')),
-      );
-      return false;
-    }
     final lmsService = LmsFactory.getLmsService();
     final students =
         await lmsService.getCourseParticipants(courseId.toString());
@@ -1172,44 +1170,7 @@ $text
       return false;
     }
 
-    final now = DateTime.now();
-    final gameTypeEnum = _gameTypeFromLabel(gameType);
-    final settings = _buildGameSettings();
-    final contentPayload = jsonEncode({
-      'title': title,
-      'description': description,
-      'gameType': gameType,
-      'settings': settings.toJson(),
-      'data': _generatedGameData ?? [],
-    });
-
     try {
-      final assignedGame = AssignedGame(
-        uuid: null,
-        courseId: courseId,
-        gameType: gameTypeEnum,
-        title: title,
-        gameData: contentPayload,
-        assignedDate: now,
-        assignedBy: teacherId,
-      );
-      final gameResponse = await _gamificationService.createGame(assignedGame);
-      final responseBody = jsonDecode(gameResponse.body);
-      final gameId = responseBody is List && responseBody.isNotEmpty
-          ? responseBody.first["game_id"]
-          : responseBody["game_id"];
-      if (gameId == null) {
-        throw Exception(
-            'Game was created, but no game id was returned by the server.');
-      }
-
-      await Future.wait(targetStudents.map((student) {
-        return _gamificationService
-            .assignGame(AssignedGameScore(studentId: student.id, game: gameId));
-      }));
-
-      await _refreshAssignments();
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1232,7 +1193,6 @@ $text
     List<Course>? courses;
     int? selectedCourseId;
     List<Participant>? students;
-    Set<int> selectedStudentIds = {};
     bool isLoadingCourses = true;
     bool isLoadingStudents = false;
     bool isAssigning = false;
@@ -1265,7 +1225,7 @@ $text
                       setState(() {
                         students = fetchedStudents;
                         isLoadingStudents = false;
-                        selectedStudentIds.clear();
+                        _selectedStudentIds.clear();
                       });
                     });
                   }
@@ -1302,7 +1262,7 @@ $text
                             selectedCourseId = value;
                             isLoadingStudents = true;
                             students = null;
-                            selectedStudentIds.clear();
+                            _selectedStudentIds.clear();
                           });
                           lmsService
                               .getCourseParticipants(value.toString())
@@ -1310,7 +1270,7 @@ $text
                             setState(() {
                               students = fetchedStudents;
                               isLoadingStudents = false;
-                              selectedStudentIds.clear();
+                              _selectedStudentIds.clear();
                             });
                           });
                         },
@@ -1322,15 +1282,15 @@ $text
                         title: const Text('Select All Students'),
                         value: students != null &&
                             students!.isNotEmpty &&
-                            selectedStudentIds.length == students!.length,
+                            _selectedStudentIds.length == students!.length,
                         onChanged: (checked) {
                           setState(() {
                             if (checked == true) {
-                              selectedStudentIds = students!
+                              _selectedStudentIds = students!
                                   .map((student) => student.id)
                                   .toSet();
                             } else {
-                              selectedStudentIds.clear();
+                              _selectedStudentIds.clear();
                             }
                           });
                         },
@@ -1346,17 +1306,17 @@ $text
                             child: ListView(
                               children: students!
                                   .map((student) => CheckboxListTile(
-                                        value: selectedStudentIds
+                                        value: _selectedStudentIds
                                             .contains(student.id),
                                         title: Text(
                                             '${student.firstname} ${student.lastname}'),
                                         onChanged: (checked) {
                                           setState(() {
                                             if (checked == true) {
-                                              selectedStudentIds
+                                              _selectedStudentIds
                                                   .add(student.id);
                                             } else {
-                                              selectedStudentIds
+                                              _selectedStudentIds
                                                   .remove(student.id);
                                             }
                                           });
@@ -1379,25 +1339,13 @@ $text
                   onPressed: (isAssigning ||
                           isLoadingCourses ||
                           isLoadingStudents ||
-                          selectedStudentIds.isEmpty ||
+                          _selectedStudentIds.isEmpty ||
                           selectedCourseId == null)
                       ? null
                       : () async {
                           setState(() {
                             isAssigning = true;
                           });
-
-                          if (_gameNeedsRefresh || _generatedGameData == null) {
-                            setState(() {
-                              isAssigning = false;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Please regenerate the game before assigning.')),
-                            );
-                            return;
-                          }
 
                           final title = _defaultGeneratedTitle();
                           final description = _defaultGeneratedDescription();
@@ -1408,7 +1356,7 @@ $text
                             description,
                             gameType,
                             courseId,
-                            specificStudentIds: selectedStudentIds,
+                            specificStudentIds: _selectedStudentIds,
                           );
                           setState(() {
                             isAssigning = false;
@@ -1526,13 +1474,6 @@ $text
     final raw = value?.toString().toLowerCase() ?? '';
     if (raw.contains('match')) return GameType.MATCHING;
     if (raw.contains('flash')) return GameType.FLASHCARD;
-    return GameType.QUIZ;
-  }
-
-  GameType _gameTypeFromLabel(String label) {
-    final normalized = label.toLowerCase();
-    if (normalized.contains('match')) return GameType.MATCHING;
-    if (normalized.contains('flash')) return GameType.FLASHCARD;
     return GameType.QUIZ;
   }
 
