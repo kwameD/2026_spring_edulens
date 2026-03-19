@@ -14,6 +14,7 @@ import 'package:learninglens_app/Api/llm/perplexity_api.dart';
 import "package:learninglens_app/Api/lms/factory/lms_factory.dart";
 import "package:learninglens_app/Controller/custom_appbar.dart";
 import 'package:learninglens_app/Controller/html_converter.dart';
+import 'package:learninglens_app/Views/iep_detail_page.dart';
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/override.dart';
 import 'package:learninglens_app/beans/participant.dart';
@@ -259,18 +260,15 @@ class _IepPageState extends State<IepPage> {
 
                                 print("Viewing IEP: $docId");
 
-                                // Option 1: Navigate to a detail page
-                                // Navigator.push(
-                                //   context,
-                                //   MaterialPageRoute(
-                                //     builder: (_) => IEPDetailPage(
-                                //       documentId: docId,
-                                //     ),
-                                //   ),
-                                // );
-
-                                // Option 2 (alternative): Show dialog instead
-                                // showDialog(...)
+                                //Navigate to a detail page
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => IepDetailPage(
+                                      documentId: doc.id,
+                                    ),
+                                  ),
+                                );
                               },
                               child: const Text("View"),
                             ),
@@ -657,7 +655,7 @@ class _IepPageState extends State<IepPage> {
       int userId,
       String fullName,
       String disability,
-      String iepSummary,
+      String studentKnowledge,
       String iep,
       String dueDate) async {
     try {
@@ -669,7 +667,7 @@ class _IepPageState extends State<IepPage> {
         "gradeLevel": gradeLevel,
         "disability": disability,
         "courseName": courseName,
-        "iepSummary": iepSummary,
+        "studentKnowledge": studentKnowledge,
         "iep": iep,
         "dueDate": dueDate,
       };
