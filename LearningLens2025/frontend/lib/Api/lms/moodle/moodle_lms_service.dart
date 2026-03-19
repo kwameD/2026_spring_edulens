@@ -134,7 +134,7 @@ class MoodleLmsService implements LmsInterface {
 
     final userId = userData['userid'];
     if (userId != null) {
-      LocalStorageService.saveUserId(userId.toString());
+      LocalStorageService.saveUserId(userId);
     } else {
       LocalStorageService.clearUserId();
       print('?? Moodle site info did not include userId');

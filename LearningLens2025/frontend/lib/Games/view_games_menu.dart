@@ -2,9 +2,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
+import 'package:learninglens_app/Api/lms/lms_interface.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
 import 'package:learninglens_app/Games/timed_quiz_game.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
+import 'package:learninglens_app/services/local_storage_service.dart';
 
 class ViewGamesList extends StatefulWidget {
   @override
@@ -119,6 +121,22 @@ class _GameListState extends State<ViewGamesList> {
   }
 
   Widget _buildGridLayout(BuildContext context, BoxConstraints constraints) {
+    final role = LocalStorageService.getUserRole();
+    final userId = LocalStorageService.getUserId();
+    
+    // Helper function to determine which game to show to the user
+    bool isGameVisible(List<int> assignedStudents) {  
+      // If the user is a teacher, show all games
+      if (role == UserRole.teacher) {
+        return true;
+      } else {
+        if (assignedStudents.any((student) => student.toString() == userId)){
+          return true;
+        }
+      }
+      return false;
+    }
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
         .collection('Games')
@@ -144,6 +162,7 @@ class _GameListState extends State<ViewGamesList> {
             'roundTime': data['roundTime'] ?? 20,
             'transitionTime': data['transitionTime'] ?? 3,
             'icon': Icons.gamepad_outlined,
+            'visible': isGameVisible(List.from(data['assignedStudents'] ?? [])),
           };
         }).toList();
         
@@ -154,10 +173,12 @@ class _GameListState extends State<ViewGamesList> {
             runSpacing: 12,
             alignment: WrapAlignment.center,
             children: gameButtonData
+              .where((data) => data['visible'] == true)
               .map((data) => SizedBox(
                 width: 550,
                 height: 440,
-                child: NavigationCard(
+                child: 
+                  NavigationCard(
                   title: data['title'], 
                   description: data['description'], 
                   icon: data['icon'],
