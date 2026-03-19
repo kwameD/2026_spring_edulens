@@ -119,6 +119,9 @@ class LocalStorageService {
 
   static String getMoodleProxyUrl() {
     String url = dotenv.env['MOODLE_PROXY_URL'] ?? '';
+    if (url.endsWith('/login/token.php')) {
+      url = url.substring(0, url.length - '/login/token.php'.length);
+    }
     if (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
     }
