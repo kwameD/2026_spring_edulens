@@ -130,7 +130,11 @@ class _GameListState extends State<ViewGamesList> {
       if (role == UserRole.teacher) {
         return true;
       } else {
+        // Check the assignedStudents field of the game, show to current user if assigned
         if (assignedStudents.any((student) => student.toString() == userId)){
+          return true;
+        } else if (assignedStudents.isEmpty) {
+          // Else if assigned students is empty, show to all users
           return true;
         }
       }
