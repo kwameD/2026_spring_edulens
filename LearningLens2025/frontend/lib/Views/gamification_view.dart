@@ -397,12 +397,14 @@ class _GamificationViewState extends State<GamificationView> {
           const SizedBox(height: 10),
           Row(
             children: [
-              ElevatedButton(
-                child: const Text('Assign Game to Students'),
-                onPressed: () {
-                  _showAssignPopup(context);
-                },
-              ),
+	              ElevatedButton(
+	                child: const Text('Assign Game to Students'),
+	                onPressed: (_gameNeedsRefresh || _generatedGameData == null)
+	                    ? null
+	                    : () {
+	                        _showAssignPopup(context);
+	                      },
+	              ),
               const SizedBox(width: 12),
               const Text("Assigned to all students if left blank."),
             ],
@@ -1205,6 +1207,16 @@ $text
     int courseId, {
     Set<int>? specificStudentIds,
   }) async {
+    if (_generatedGameData == null || _generatedGameData!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Please generate the game or AIRSS session before assigning.'),
+        ),
+      );
+      return false;
+    }
+
     final lmsService = LmsFactory.getLmsService();
     final students =
         await lmsService.getCourseParticipants(courseId.toString());
@@ -1444,6 +1456,19 @@ $text
                           setState(() {
                             isAssigning = true;
                           });
+
+                          if (_gameNeedsRefresh || _generatedGameData == null) {
+                            setState(() {
+                              isAssigning = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'Please regenerate the game before assigning.'),
+                              ),
+                            );
+                            return;
+                          }
 
                           final title = _defaultGeneratedTitle();
                           final description = _defaultGeneratedDescription();
