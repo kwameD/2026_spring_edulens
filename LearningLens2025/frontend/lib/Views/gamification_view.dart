@@ -119,6 +119,52 @@ class _GamificationViewState extends State<GamificationView> {
     return 'Auto-generated from ${_selectedFile?.name ?? 'uploaded class material'}.';
   }
 
+  Future<List<Map<String, dynamic>>?> _loadGeneratedDataForAssignment() async {
+    if (_generatedGameData != null && _generatedGameData!.isNotEmpty) {
+      return _generatedGameData;
+    }
+
+    final title = _defaultGeneratedTitle();
+    if (title.isEmpty) {
+      return null;
+    }
+
+    final snapshot =
+        await FirebaseFirestore.instance.collection('Games').doc(title).get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    final data = snapshot.data();
+    if (data == null) {
+      return null;
+    }
+
+    final questions = data['questions'];
+    if (questions is! List) {
+      return null;
+    }
+
+    final loaded = questions
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+
+    if (loaded.isEmpty) {
+      return null;
+    }
+
+    if (mounted) {
+      setState(() {
+        _generatedGameData = loaded;
+        _isGameCreated = true;
+        _gameNeedsRefresh = false;
+      });
+    }
+
+    return loaded;
+  }
+
   String _extractFirstJsonArray(String raw) {
     var cleaned = raw
         .replaceAll(RegExp(r'```json', multiLine: true), '')
@@ -258,7 +304,7 @@ class _GamificationViewState extends State<GamificationView> {
 
   Widget _buildTeacherUI(BuildContext context) {
     final List<int> numOfQuestionsList = [5, 10, 15, 20];
-    
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,14 +443,12 @@ class _GamificationViewState extends State<GamificationView> {
           const SizedBox(height: 10),
           Row(
             children: [
-	              ElevatedButton(
-	                child: const Text('Assign Game to Students'),
-	                onPressed: (_gameNeedsRefresh || _generatedGameData == null)
-	                    ? null
-	                    : () {
-	                        _showAssignPopup(context);
-	                      },
-	              ),
+              ElevatedButton(
+                child: const Text('Assign Game to Students'),
+                onPressed: () {
+                  _showAssignPopup(context);
+                },
+              ),
               const SizedBox(width: 12),
               const Text("Assigned to all students if left blank."),
             ],
@@ -425,7 +469,8 @@ class _GamificationViewState extends State<GamificationView> {
                   });
                 },
                 label: const Text('Number of Questions'),
-                dropdownMenuEntries: numOfQuestionsList.map<DropdownMenuEntry<int>>((int value) {
+                dropdownMenuEntries:
+                    numOfQuestionsList.map<DropdownMenuEntry<int>>((int value) {
                   return DropdownMenuEntry(
                     value: value,
                     label: value.toString(),
@@ -1009,13 +1054,15 @@ class _GamificationViewState extends State<GamificationView> {
       });
 
       await gamesCollection.doc(_defaultGeneratedTitle()).set({
-        'basePointsPerSec': int.tryParse(_basePointsController.text.trim()) ?? 5,
+        'basePointsPerSec':
+            int.tryParse(_basePointsController.text.trim()) ?? 5,
         'description': _defaultGeneratedDescription(),
         'difficulty': _selectedDifficulty,
         'questions': parsedList,
         'roundTime': int.tryParse(_roundTimeController.text.trim()) ?? 20,
         'title': _defaultGeneratedTitle(),
-        'transitionTime': int.tryParse(_transitionTimeController.text.trim()) ?? 3,
+        'transitionTime':
+            int.tryParse(_transitionTimeController.text.trim()) ?? 3,
         'assignedStudents': _selectedStudentIds,
       });
 
@@ -1221,7 +1268,8 @@ $text
     int courseId, {
     Set<int>? specificStudentIds,
   }) async {
-    if (_generatedGameData == null || _generatedGameData!.isEmpty) {
+    final generatedData = await _loadGeneratedDataForAssignment();
+    if (generatedData == null || generatedData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -1266,7 +1314,7 @@ $text
       'gameType': gameType,
       'llmType': _selectedLLM?.displayName ?? 'ChatGPT',
       'settings': settings.toJson(),
-      'data': _generatedGameData ?? [],
+      'data': generatedData,
     });
     try {
       final assignedGame = AssignedGame(
@@ -1292,6 +1340,15 @@ $text
         return _gamificationService
             .assignGame(AssignedGameScore(studentId: student.id, game: gameId));
       }));
+
+      await FirebaseFirestore.instance.collection('Games').doc(title).set({
+        'title': title,
+        'description': description,
+        'gameType': gameType,
+        'questions': generatedData,
+        'assignedStudents':
+            targetStudents.map((student) => student.id).toList(),
+      }, SetOptions(merge: true));
 
       await _refreshAssignments();
 
@@ -1471,14 +1528,16 @@ $text
                             isAssigning = true;
                           });
 
-                          if (_gameNeedsRefresh || _generatedGameData == null) {
+                          final generatedData =
+                              await _loadGeneratedDataForAssignment();
+                          if (generatedData == null || generatedData.isEmpty) {
                             setState(() {
                               isAssigning = false;
                             });
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    'Please regenerate the game before assigning.'),
+                                    'Please generate the game before assigning.'),
                               ),
                             );
                             return;
@@ -1622,6 +1681,7 @@ $text
     if (normalized.contains('airss')) return GameType.AIRSS;
     return GameType.QUIZ;
   }
+
   Map<String, dynamic>? _decodeGameData(String raw) {
     if (raw.isEmpty) return null;
     try {
