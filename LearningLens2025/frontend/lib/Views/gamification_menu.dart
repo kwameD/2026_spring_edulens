@@ -135,8 +135,22 @@ class _GameMenuState extends State<GamificationMenu> {
               height: 140,
               child: NavigationCard(
                 title: 'Create a game', 
-                description: 'Create games for students to learn while having fun.', 
+                description: 'Create quiz, matching, flashcard, and AIRSS simulation activities.', 
                 icon: Icons.videogame_asset_outlined, 
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => GamificationView(viewGames: false,))
+                ),
+              )
+            ),
+          if (role == UserRole.teacher)
+            SizedBox(
+              width: 350,
+              height: 140,
+              child: NavigationCard(
+                title: 'AIRSS Sessions',
+                description: 'Launch the roleplay session builder for high-stakes stakeholder simulations.',
+                icon: Icons.record_voice_over_outlined,
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => GamificationView(viewGames: false,))

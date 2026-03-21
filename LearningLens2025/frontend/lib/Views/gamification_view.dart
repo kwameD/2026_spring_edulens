@@ -264,7 +264,7 @@ class _GamificationViewState extends State<GamificationView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Generate a Game from a Lesson: ',
+            'Generate a Game or AIRSS Session from a Lesson:',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
