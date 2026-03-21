@@ -1,9 +1,3 @@
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type,Authorization",
-  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-};
-
 function normalizeBaseUrl(url) {
   return (url ?? "").replace(/\/+$/, "");
 }
@@ -50,8 +44,7 @@ function buildProxyHeaders(event) {
 export const handler = async (event) => {
   if (event.requestContext?.http?.method === "OPTIONS") {
     return {
-      statusCode: 200,
-      headers: corsHeaders,
+      statusCode: 204,
       body: "",
     };
   }
@@ -88,7 +81,6 @@ export const handler = async (event) => {
     return {
       statusCode: response.status,
       headers: {
-        ...corsHeaders,
         "Content-Type": response.headers.get("content-type") ?? "text/plain",
       },
       body,
@@ -99,7 +91,6 @@ export const handler = async (event) => {
     return {
       statusCode: 502,
       headers: {
-        ...corsHeaders,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
