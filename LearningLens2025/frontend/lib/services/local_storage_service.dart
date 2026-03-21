@@ -109,8 +109,10 @@ class LocalStorageService {
 
   /// Retrieves Moodle URL from storage or dotenv.
   static String getMoodleUrl() {
-    String url =
-        _prefs.getString('moodleUrl') ?? dotenv.env['MOODLE_URL'] ?? '';
+    final envUrl = dotenv.env['MOODLE_URL'] ?? '';
+    String url = envUrl.trim().isNotEmpty
+        ? envUrl
+        : _prefs.getString('moodleUrl') ?? '';
     if (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
     }
@@ -332,9 +334,11 @@ class LocalStorageService {
   }
 
   static String getGoogleClientId() {
-    return _prefs.getString('GOOGLE_CLIENT_ID') ??
-        dotenv.env['GOOGLE_CLIENT_ID'] ??
-        '';
+    final envClientId = dotenv.env['GOOGLE_CLIENT_ID'] ?? '';
+    if (envClientId.trim().isNotEmpty) {
+      return envClientId;
+    }
+    return _prefs.getString('GOOGLE_CLIENT_ID') ?? '';
   }
 
   static void saveGoogleClientId(String clientId) {
