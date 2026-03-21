@@ -28,6 +28,7 @@ import 'package:learninglens_app/Api/lms/moodle/moodle_lms_service.dart'
     as moodle;
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
+import 'package:learninglens_app/theme/app_theme_helper.dart';
 
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/assignment.dart';
@@ -771,12 +772,31 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     return Container(
       width: 100,
       padding: const EdgeInsets.all(16),
-      color: Colors.grey[200],
-      child: Column(
+      decoration: AppThemeHelper.panelDecoration(context).copyWith(
+        // Added: give the report form a stronger dark-surface background so controls stay readable.
+        color: AppThemeHelper.isDark(context)
+            ? Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.94)
+            : Colors.grey[200],
+      ),
+      child: Theme(
+        // Added: adapt input and dropdown text colors so analytics controls remain easy to read in dark mode.
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+            labelStyle: TextStyle(color: AppThemeHelper.bodyColor(context)),
+            hintStyle: TextStyle(color: AppThemeHelper.mutedColor(context)),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: AppThemeHelper.borderColor(context)),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
+            ),
+          ),
+        ),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Generate New Report',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text('Generate New Report',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppThemeHelper.titleColor(context))),
           const SizedBox(height: 8),
           // Course dropdown.
           DropdownButtonFormField<Course>(
@@ -885,7 +905,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           const SizedBox(height: 12),
           Row(children: [
             Spacer(),
-            Text("Grade Level: "),
+            Text("Grade Level: ", style: TextStyle(color: AppThemeHelper.bodyColor(context))),
             DropdownButton<String>(
               value: _selectedGradeLevel,
               items: LearningLensConstants.gradeLevels.map((String value) {
@@ -912,7 +932,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               child: const Text('Generate'),
             ),
             Spacer(),
-            Text("LLM: "),
+            Text("LLM: ", style: TextStyle(color: AppThemeHelper.bodyColor(context))),
             DropdownButton<LlmType>(
                 value: selectedLLM,
                 onChanged: (LlmType? newValue) {
@@ -935,8 +955,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                         "" &&
                                     _localLlmAvail) ||
                                 LocalStorageService.userHasLlmKey(llm)
-                            ? Colors.black87
-                            : Colors.grey,
+                            ? AppThemeHelper.titleColor(context)
+                            : AppThemeHelper.mutedColor(context),
                       ),
                     ),
                   );
@@ -944,11 +964,11 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ]),
           if (selectedLLM == LlmType.LOCAL) ...[
             const SizedBox(height: 6),
-            const Text(
+            Text(
               "Running a Large Language Model (LLM) locally typically requires substantial hardware resources.\nWe recommend using 7B or higher thinking (Qwen) models to generate the analysis. \nFor best results, we strongly recommend using the external LLM for this task.\nPlease use the local LLM responsibly and independently verify any critical information.",
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.black54,
+                color: AppThemeHelper.mutedColor(context),
               ),
             ),
           ],
@@ -1021,7 +1041,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             ),
         ],
       ),
-    );
+    ));
   }
 
   // ---------------------------------------------------------------------------
@@ -1153,8 +1173,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       DataCell(
                         Text(
                           student['studentName'].toString(),
-                          style: const TextStyle(
-                            color: Colors.blue,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -1174,23 +1194,26 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   // ---------------------------------------------------------------------------
   Widget _buildStudentDetail() {
     if (_selectedStudent == null) {
-      return const Center(
+      return Center(
         child: Text(
           'Select a student to see detailed grades.',
-          style: TextStyle(fontStyle: FontStyle.italic),
+          style: TextStyle(
+            fontStyle: FontStyle.italic,
+            color: AppThemeHelper.bodyColor(context),
+          ),
         ),
       );
     }
     int studentId = _selectedStudent!['id'];
     if (_studentCourseData.isEmpty) {
-      return Text('No data available for student $studentId.');
+      return Text('No data available for student $studentId.', style: TextStyle(color: AppThemeHelper.bodyColor(context))); 
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Details for ${_selectedStudent!['studentName']}',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppThemeHelper.titleColor(context)),
         ),
         const SizedBox(height: 10),
         ..._studentCourseData
@@ -1346,7 +1369,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               Row(children: [
                 Text(
                   'Student Breakdown',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppThemeHelper.titleColor(context)),
                 ),
                 Spacer(),
                 ElevatedButton(
@@ -1359,8 +1382,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               ]),
               const SizedBox(height: 8),
               Container(
-                color: Colors.white,
                 padding: const EdgeInsets.all(8),
+                decoration: AppThemeHelper.panelDecoration(context),
                 child: _buildStudentTable(),
               ),
             ],
@@ -1376,34 +1399,129 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               // Top-right: label + question breakdown
               Visibility(
                   visible: isQuiz(),
-                  child: const Text(
+                  child: Text(
                     'Question Breakdown',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppThemeHelper.titleColor(context)),
                   )),
               Visibility(visible: isQuiz(), child: const SizedBox(height: 8)),
               Visibility(
                   visible: isQuiz(),
                   child: Container(
-                    color: Colors.white,
                     padding: const EdgeInsets.all(8),
+                    decoration: AppThemeHelper.panelDecoration(context),
                     child: _buildQuestionBreakdown(),
                   )),
               Visibility(visible: isQuiz(), child: const SizedBox(height: 20)),
               // Bottom-right: label + selected student detail
-              const Text(
+              Text(
                 'Student Detail',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppThemeHelper.titleColor(context)),
               ),
               const SizedBox(height: 8),
               Container(
-                color: Colors.white,
                 padding: const EdgeInsets.all(8),
+                decoration: AppThemeHelper.panelDecoration(context),
                 child: _buildStudentDetail(),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+
+  // ---------------------------------------------------------------------------
+  // _buildActionableInsightCards:
+  // Added: builds teacher-friendly and student-friendly insight cards for quick intervention planning.
+  // ---------------------------------------------------------------------------
+  Widget _buildActionableInsightCards() {
+    // Added: compute a simple average so the dashboard surfaces intervention-ready class trends.
+    final averageGrade = _studentBreakdown.isEmpty
+        ? 0.0
+        : _studentBreakdown
+                .map((student) => double.tryParse(student['avgGrade'].toString()) ?? 0.0)
+                .fold(0.0, (sum, value) => sum + value) /
+            _studentBreakdown.length;
+
+    // Added: identify students who may need additional support based on their current average.
+    final needsSupportCount = _studentBreakdown
+        .where((student) => (double.tryParse(student['avgGrade'].toString()) ?? 0.0) < 75)
+        .length;
+
+    // Added: infer a quick participation signal from whether a student breakdown is populated.
+    final participationSignal = _studentBreakdown.isEmpty
+        ? 'Participation patterns are still loading.'
+        : '${_studentBreakdown.length} students are represented in the current breakdown.';
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _buildInsightCard(
+          title: 'Class-level insight',
+          description:
+              'Average visible performance is ${averageGrade.toStringAsFixed(1)}%. Use this to adjust lesson pacing, re-teach misunderstood directions, and target weak concepts before the next activity.',
+          icon: Icons.groups_2_outlined,
+        ),
+        _buildInsightCard(
+          title: 'Student-level insight',
+          description:
+              '$needsSupportCount learners currently appear below a 75% average. Use the detail panel and AI analysis summary to plan individualized interventions and feedback follow-up.',
+          icon: Icons.person_search_outlined,
+        ),
+        _buildInsightCard(
+          title: 'Participation insight',
+          description:
+              participationSignal,
+          icon: Icons.analytics_outlined,
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // _buildInsightCard:
+  // Added: shared visual for readable analytics insight cards in light and dark mode.
+  // ---------------------------------------------------------------------------
+  Widget _buildInsightCard({
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    return Container(
+      width: 320,
+      padding: const EdgeInsets.all(14),
+      decoration: AppThemeHelper.panelDecoration(context),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppThemeHelper.titleColor(context),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: AppThemeHelper.bodyColor(context),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1432,19 +1550,22 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             child: Column(
               children: [
                 Text('Analytics Source: ${analyticsData!['source']}',
-                    style: const TextStyle(fontSize: 16)),
+                    style: TextStyle(fontSize: 16, color: AppThemeHelper.bodyColor(context))),
                 Text('Total Courses: ${analyticsData!['totalCourses']}',
-                    style: const TextStyle(fontSize: 16)),
+                    style: TextStyle(fontSize: 16, color: AppThemeHelper.bodyColor(context))),
                 Text(
                     'Student Performance: ${analyticsData!['studentPerformance']}',
-                    style: const TextStyle(fontSize: 16)),
+                    style: TextStyle(fontSize: 16, color: AppThemeHelper.bodyColor(context))),
                 Text('IEP Progress: ${analyticsData!['iepProgress']}',
-                    style: const TextStyle(fontSize: 16)),
+                    style: TextStyle(fontSize: 16, color: AppThemeHelper.bodyColor(context))),
                 Text('Course Engagement: ${analyticsData!['courseEngagement']}',
-                    style: const TextStyle(fontSize: 16)),
+                    style: TextStyle(fontSize: 16, color: AppThemeHelper.bodyColor(context))),
               ],
             ),
           ),
+          const SizedBox(height: 20),
+          // Added: surface actionable teacher and student insight cards before the deeper analytics grid.
+          _buildActionableInsightCards(),
           const SizedBox(height: 20),
           // 2x2 grid view.
           _buildMainGrid(),
@@ -1453,9 +1574,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'AI Analysis Summary',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppThemeHelper.titleColor(context)),
               ),
               ElevatedButton(
                 onPressed: (_aiAnalysisSuccess.isNotEmpty ||
@@ -1660,8 +1781,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     final aiExportItems = ["aiExport${title}Header", "aiExport${title}Body"];
     _exportFrameIds.add(aiExportItems);
     return ExpansionPanel(
-        backgroundColor:
-            Theme.of(context).colorScheme.primaryContainer.withOpacity(1),
+        backgroundColor: AppThemeHelper.isDark(context)
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : Theme.of(context).colorScheme.primaryContainer.withOpacity(1),
         canTapOnHeader: true,
         headerBuilder: (context, isExpanded) {
           return ExportFrame(
@@ -1684,7 +1806,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             frameId: aiExportItems[1],
             exportDelegate: exp,
             child: Container(
-                color: Colors.grey[200],
+                color: AppThemeHelper.isDark(context)
+                    ? Theme.of(context).colorScheme.surfaceContainer
+                    : Colors.grey[200],
                 padding: EdgeInsets.all(10),
                 child: Row(children: [
                   Expanded(
@@ -1708,7 +1832,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                             width: 370,
                             padding: EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppThemeHelper.isDark(context)
+                                ? Theme.of(context).colorScheme.surfaceContainerHighest
+                                : Colors.white,
                                 border: BoxBorder.all(
                                     color:
                                         Theme.of(context).colorScheme.primary)),

@@ -142,19 +142,8 @@ class UserSettingsState extends State<UserSettings> {
               // const SizedBox(height: 20),
               // const Divider(),
 
-              // Theme Color Picker
-              Text(
-                'Theme Color Picker:',
-                style: TextStyle(fontSize: 20),
-              ),
-              ElevatedButton(
-                onPressed: _pickColor,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: themeColor,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                ),
-                child: Text('Pick Theme Color'),
-              ),
+              // Added: theme appearance block with richer color options and dark mode support.
+              _buildThemeAppearanceBlock(themeColor),
             ],
           ),
         ),
@@ -1023,6 +1012,160 @@ Please refer to the information below to better understand your device's GPU and
   }
 
   // -------------------------------------------
+  // Theme Appearance Block
+  // -------------------------------------------
+  Widget _buildThemeAppearanceBlock(Color themeColor) {
+    // Added: read the current theme notifier once for the color chips and dark mode switch.
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Theme Appearance:',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        // Added: show richer named preset themes including the requested multicolor options.
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: ThemeNotifier.availableThemeOptions.map((option) {
+            // Added: highlight the selected named theme preset.
+            final isSelected = themeNotifier.selectedThemeId == option.id;
+
+            return InkWell(
+              onTap: () {
+                // Added: apply the selected named single-color or multicolor theme preset.
+                themeNotifier.updateThemeOption(option);
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 180,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [option.primaryColor, option.secondaryColor],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isSelected ? Colors.white : Colors.transparent,
+                    width: 3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: option.primaryColor.withOpacity(0.30),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            option.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check_circle, color: Colors.white),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Preset theme',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: ThemeNotifier.availableThemeColors.map((color) {
+            // Added: highlight the currently selected single custom color chip.
+            final isSelected = themeNotifier.primaryColor.value == color.value;
+
+            return InkWell(
+              onTap: () {
+                // Added: apply the selected accent color immediately when tapped.
+                themeNotifier.updateTheme(color);
+              },
+              borderRadius: BorderRadius.circular(999),
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? Colors.white : Colors.transparent,
+                    width: 3,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.35),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: isSelected
+                    ? const Icon(Icons.check, color: Colors.white)
+                    : null,
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: _pickColor,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: themeColor,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              ),
+              child: const Text('Pick Theme Color'),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Enable Dark Theme'),
+                subtitle: const Text('Switch between light and dark mode.'),
+                value: themeNotifier.isDarkMode,
+                onChanged: (value) {
+                  // Added: persist the light or dark mode selection.
+                  themeNotifier.updateThemeMode(value);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // -------------------------------------------
   // Theme Color Picker
   // -------------------------------------------
   void _pickColor() async {
@@ -1044,13 +1187,8 @@ Please refer to the information below to better understand your device's GPU and
                 Provider.of<ThemeNotifier>(context, listen: false)
                     .updateTheme(color);
               },
-              availableColors: [
-                Colors.red,
-                Colors.green,
-                Colors.blue,
-                Colors.orange,
-                Colors.purple,
-              ],
+              // Added: reuse the shared theme palette so the picker offers more vibrant options consistently.
+              availableColors: ThemeNotifier.availableThemeColors,
             ),
           ),
         ),

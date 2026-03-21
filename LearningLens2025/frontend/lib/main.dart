@@ -28,6 +28,8 @@ import 'Views/quiz_generator.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
+  // Added: ensure Flutter bindings are available before any async startup work runs.
+  WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
   // runApp(MyApp());
   await LocalStorageService.init(); // Initialize SharedPreferences
@@ -37,11 +39,10 @@ void main() async {
   await GamificationService.createDb();
   await ReflectionService.createDb();
 
-  WidgetsFlutterBinding.ensureInitialized();
+  // Added: initialize Firebase only once during startup.
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await DatabaseSeeder.seedIfEmpty();
 
   runApp(
@@ -80,14 +81,78 @@ class MyApp extends StatelessWidget {
         ? TeacherDashboard()
         : TeacherDashboard(); //GoogleTeacherDashboard();
 
+    // Added: read the selected theme settings once so both light and dark themes stay in sync.
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: "Learning Lens",
       home: home,
       navigatorKey: navigatorKey,
+      // Added: apply the persisted light or dark mode setting.
+      themeMode: themeNotifier.themeMode,
       theme: ThemeData(
+        // Added: keep Material 3 enabled while rebuilding the whole app from the chosen accent color.
+        useMaterial3: true,
+        // Added: generate the full light color scheme from the persisted theme picker color.
         colorScheme: ColorScheme.fromSeed(
-            seedColor: Provider.of<ThemeNotifier>(context).primaryColor),
+          seedColor: themeNotifier.primaryColor,
+          brightness: Brightness.light,
+          secondary: themeNotifier.secondaryColor,
+        ),
+        // Added: give the web and desktop app a clean neutral light background for stronger text contrast.
+        scaffoldBackgroundColor: const Color(0xFFF6F7FB),
+        // Added: improve readability on light cards, inputs, and data tables.
+        cardTheme: const CardThemeData(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+        ),
+        // Added: make input labels and helper text easier to read against light surfaces.
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(),
+        ),
+        // Added: improve table readability across analytics, IEP, and program-assessment pages.
+        dataTableTheme: const DataTableThemeData(
+          headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+          dataTextStyle: TextStyle(color: Colors.black87),
+        ),
+      ),
+      // Added: provide a richer dark theme with stronger text contrast and readable surfaces.
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: themeNotifier.primaryColor,
+          brightness: Brightness.dark,
+          secondary: themeNotifier.secondaryColor,
+          surface: const Color(0xFF11131A),
+        ),
+        scaffoldBackgroundColor: const Color(0xFF0B1020),
+        cardTheme: const CardThemeData(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF161B26),
+          border: const OutlineInputBorder(),
+          labelStyle: TextStyle(color: Colors.white.withOpacity(0.90)),
+          hintStyle: TextStyle(color: Colors.white.withOpacity(0.65)),
+        ),
+        textTheme: ThemeData.dark().textTheme.apply(
+              bodyColor: Colors.white.withOpacity(0.94),
+              displayColor: Colors.white.withOpacity(0.96),
+            ),
+        // Added: keep table headers and rows readable on dark surfaces.
+        dataTableTheme: DataTableThemeData(
+          headingRowColor: MaterialStatePropertyAll(Colors.white.withOpacity(0.08)),
+          headingTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white.withOpacity(0.94),
+          ),
+          dataTextStyle: TextStyle(color: Colors.white.withOpacity(0.90)),
+        ),
       ),
       scrollBehavior: CustomScrollBehavior(),
       localizationsDelegates: const [
