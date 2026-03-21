@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Api/lms/lms_interface.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
+import 'package:learninglens_app/Games/airss_simulation.dart';
 import 'package:learninglens_app/Games/timed_quiz_game.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
 import 'package:learninglens_app/services/local_storage_service.dart';
@@ -157,15 +158,19 @@ class _GameListState extends State<ViewGamesList> {
         // Parse the retrieved games into a List, create NavigationCards from list
         List<Map<String, dynamic>> gameButtonData = snapshot.data!.docs.map((doc) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          final gameType = data['gameType']?.toString() ?? 'Quiz Game';
           return {
             'title': data['title'],
             'questions': data['questions'],
+            'gameType': gameType,
             'description': data['description'] ?? 'No description provided.',
             'basePointsPerSec': data['basePointsPerSec'] ?? 5,
             'difficulty': data['difficulty'] ?? 'N/A',
             'roundTime': data['roundTime'] ?? 20,
             'transitionTime': data['transitionTime'] ?? 3,
-            'icon': Icons.gamepad_outlined,
+            'icon': gameType == 'AIRSS Simulation'
+                ? Icons.record_voice_over_outlined
+                : Icons.gamepad_outlined,
             'visible': isGameVisible(List.from(data['assignedStudents'] ?? [])),
           };
         }).toList();
@@ -189,8 +194,26 @@ class _GameListState extends State<ViewGamesList> {
                   onPressed: () => Navigator.push(
                     context, 
                     MaterialPageRoute(
-                      builder: 
-                        (context) => TimedQuizGame(
+                      builder: (context) {
+                        if (data['gameType'] == 'AIRSS Simulation') {
+                          return Scaffold(
+                            appBar: AppBar(title: Text(data['title'])),
+                            body: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: AirssSimulationGame(
+                                scenarios: List<Map<String, dynamic>>.from(
+                                  data['questions'] ?? const [],
+                                ),
+                                title: data['title'],
+                                description: data['description'],
+                                llmType: 'ChatGPT',
+                                previewMode: true,
+                                onComplete: (_) {},
+                              ),
+                            ),
+                          );
+                        }
+                        return TimedQuizGame(
                           basePointsPerSec: data['basePointsPerSec'],
                           difficulty: data['difficulty'],
                           gameTitle: data['title'],
@@ -200,7 +223,8 @@ class _GameListState extends State<ViewGamesList> {
                           ),
                           roundTime: data['roundTime'],
                           transitionTime: data['transitionTime'],
-                        )
+                        );
+                      },
                     )
                   )
                 )

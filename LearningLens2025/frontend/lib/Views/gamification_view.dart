@@ -1165,7 +1165,7 @@ $text
 
     final raw = await aiModel.postToLlm(prompt);
     final cleaned = _extractFirstJsonArray(raw);
-    return _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
+    final scenarios = _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
       if (item is! Map) {
         throw Exception('Scenario item is not an object');
       }
@@ -1178,6 +1178,20 @@ $text
         'openingLine': map['openingLine']?.toString() ?? '',
       };
     });
+
+    await FirebaseFirestore.instance
+        .collection('Games')
+        .doc(_defaultGeneratedTitle())
+        .set({
+      'title': _defaultGeneratedTitle(),
+      'description': _defaultGeneratedDescription(),
+      'gameType': 'AIRSS Simulation',
+      'questions': scenarios,
+      'assignedStudents': _selectedStudentIds,
+      'icon': 'record_voice_over_outlined',
+    });
+
+    return scenarios;
   }
 
   List<T> _parseJsonList<T>(String content, T Function(dynamic) mapper) {
