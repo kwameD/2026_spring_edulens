@@ -107,12 +107,22 @@ class _CreateAssignmentPageState extends State<CreateAssignmentPage> {
         return;
       }
 
+      final dueDateTime = _dueDate == null
+          ? null
+          : DateTime(
+              _dueDate!.year,
+              _dueDate!.month,
+              _dueDate!.day,
+              _dueTime?.hour ?? 23,
+              _dueTime?.minute ?? 59,
+            );
+
       var ess = await GoogleLmsService().createAssignment(
           _selectedCourseId!,
           "",
           _title!,
           "",
-          _dueDate?.millisecondsSinceEpoch.toString() ?? "",
+          dueDateTime?.toIso8601String() ?? "",
           _points?.toString() ?? "",
           _instructions ?? "");
       if (ess != null) {

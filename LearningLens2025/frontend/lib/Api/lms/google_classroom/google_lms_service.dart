@@ -983,7 +983,7 @@ class GoogleLmsService extends LmsInterface {
           await http.post(url, headers: headers, body: jsonEncode(body));
 
       print('Create assignment response: ${response.statusCode}');
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         print('Body: ${response.body}');
         return null;
       }
