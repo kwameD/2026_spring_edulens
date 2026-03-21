@@ -135,7 +135,8 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
             return RadioListTile<int>(
               value: index,
               groupValue: _selectedScenarioIndex,
-              title: Text(scenario['title']?.toString() ?? 'Scenario ${index + 1}'),
+              title: Text(
+                  scenario['title']?.toString() ?? 'Scenario ${index + 1}'),
               subtitle: Text(
                 '${scenario['objective'] ?? ''}\nPersona: ${scenario['persona'] ?? ''}',
               ),
@@ -255,7 +256,8 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
             maxLines: 4,
             enabled: !_submitting,
             decoration: const InputDecoration(
-              hintText: 'Enter your response. Use "End Session" to force completion.',
+              hintText:
+                  'Enter your response. Use "End Session" to force completion.',
               border: OutlineInputBorder(),
             ),
           ),
@@ -291,8 +293,10 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
   Widget _buildHandover() {
     final bundle = _evidenceBundle ?? _buildEvidenceBundle(reflection: '');
     final transcript = (bundle['transcript'] as List<dynamic>? ?? const []);
-    final teacherSummary = bundle['teacher_summary'] as Map<String, dynamic>? ?? {};
-    final evidenceJson = const JsonEncoder.withIndent('  ').convert(teacherSummary);
+    final teacherSummary =
+        bundle['teacher_summary'] as Map<String, dynamic>? ?? {};
+    final evidenceJson =
+        const JsonEncoder.withIndent('  ').convert(teacherSummary);
 
     return SizedBox(
       width: 760,
@@ -444,7 +448,9 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
       });
       _scrollToBottom();
 
-      if (aiReply['sessionComplete'] == true || _turns.where((t) => t.label == '[YOUR RESPONSE]').length >= _maxRounds) {
+      if (aiReply['sessionComplete'] == true ||
+          _turns.where((t) => t.label == '[YOUR RESPONSE]').length >=
+              _maxRounds) {
         _finishSession();
       }
     } catch (error) {
@@ -460,7 +466,8 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
     }
   }
 
-  Future<Map<String, dynamic>> _generateStakeholderReply(String response) async {
+  Future<Map<String, dynamic>> _generateStakeholderReply(
+      String response) async {
     final llm = _buildLlm(widget.llmType);
     final scenario = widget.scenarios[_selectedScenarioIndex];
     final transcriptJson = jsonEncode(
@@ -533,7 +540,8 @@ Rules:
     _resultUploaded = true;
     widget.onComplete(
       GamePlayResult(
-        score: bundle['teacher_summary']['final_competency_score'] as int? ?? _currentScore(),
+        score: bundle['teacher_summary']['final_competency_score'] as int? ??
+            _currentScore(),
         maxScore: 100,
         evidencePayload: bundle,
       ),
@@ -582,7 +590,8 @@ Rules:
   }
 
   int _currentScore() {
-    final basePoints = (_empathy + _technicalAccuracy + _deEscalation).clamp(0, 90);
+    final basePoints =
+        (_empathy + _technicalAccuracy + _deEscalation).clamp(0, 90);
     final streakMultiplier = _selectedFormat == 'Streak Challenge'
         ? (1 + (_optimalStreak * 0.15))
         : 1.0;
@@ -611,9 +620,12 @@ Rules:
       strengths.add('Technical explanations stayed concrete and credible.');
     }
     if (_deEscalation >= _empathy && _deEscalation >= _technicalAccuracy) {
-      strengths.add('Stakeholder pressure was contained without obvious overpromising.');
+      strengths.add(
+          'Stakeholder pressure was contained without obvious overpromising.');
     }
-    return strengths.isEmpty ? ['Session completed with balanced but limited evidence.'] : strengths;
+    return strengths.isEmpty
+        ? ['Session completed with balanced but limited evidence.']
+        : strengths;
   }
 
   List<String> _weaknesses() {
@@ -630,7 +642,10 @@ Rules:
 
   String _reflectionQuality(String reflection) {
     final sentences = _sentenceCount(reflection);
-    final wordCount = reflection.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
+    final wordCount = reflection
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .length;
     if (sentences >= 3 && wordCount >= 45) return 'Strong';
     if (sentences >= 3) return 'Adequate';
     return 'Insufficient';
@@ -685,19 +700,36 @@ Rules:
 
   LLM _buildLlm(String value) {
     final normalized = value.toLowerCase();
-    if (normalized.contains('deep')) {
+    if (normalized.contains('deep') &&
+        LocalStorageService.getDeepseekKey().isNotEmpty) {
       return DeepseekLLM(LocalStorageService.getDeepseekKey());
     }
-    if (normalized.contains('grok')) {
+    if (normalized.contains('grok') &&
+        LocalStorageService.getGrokKey().isNotEmpty) {
       return GrokLLM(LocalStorageService.getGrokKey());
     }
-    if (normalized.contains('perplex')) {
+    if (normalized.contains('perplex') &&
+        LocalStorageService.getPerplexityKey().isNotEmpty) {
       return PerplexityLLM(LocalStorageService.getPerplexityKey());
     }
     if (normalized.contains('local')) {
       return LocalLLMService();
     }
-    return OpenAiLLM(LocalStorageService.getOpenAIKey());
+    if (LocalStorageService.getOpenAIKey().isNotEmpty) {
+      return OpenAiLLM(LocalStorageService.getOpenAIKey());
+    }
+    if (LocalStorageService.getPerplexityKey().isNotEmpty) {
+      return PerplexityLLM(LocalStorageService.getPerplexityKey());
+    }
+    if (LocalStorageService.getGrokKey().isNotEmpty) {
+      return GrokLLM(LocalStorageService.getGrokKey());
+    }
+    if (LocalStorageService.getDeepseekKey().isNotEmpty) {
+      return DeepseekLLM(LocalStorageService.getDeepseekKey());
+    }
+    throw Exception(
+      'No configured LLM API key found for AIRSS. Add an OpenAI, Perplexity, Grok, or DeepSeek key in settings.',
+    );
   }
 
   void _scrollToBottom() {

@@ -429,7 +429,7 @@ resource "aws_lambda_function" "moodle_proxy" {
   timeout          = "10"
   environment {
     variables = {
-      MOODLE_URL = format("http://%s", aws_eip.lb.public_ip)
+      MOODLE_URL = var.moodle_url
     }
   }
 }

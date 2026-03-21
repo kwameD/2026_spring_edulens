@@ -65,6 +65,7 @@ class _GamificationViewState extends State<GamificationView> {
   int _numberOfQuestions = 5;
   bool _adaptiveDifficultyEnabled = false;
   String _selectedMode = 'Solo';
+  Set<int> _selectedStudentIds = {};
 
   @override
   void initState() {
@@ -116,6 +117,52 @@ class _GamificationViewState extends State<GamificationView> {
     final explicit = _descriptionController.text.trim();
     if (explicit.isNotEmpty) return explicit;
     return 'Auto-generated from ${_selectedFile?.name ?? 'uploaded class material'}.';
+  }
+
+  Future<List<Map<String, dynamic>>?> _loadGeneratedDataForAssignment() async {
+    if (_generatedGameData != null && _generatedGameData!.isNotEmpty) {
+      return _generatedGameData;
+    }
+
+    final title = _defaultGeneratedTitle();
+    if (title.isEmpty) {
+      return null;
+    }
+
+    final snapshot =
+        await FirebaseFirestore.instance.collection('Games').doc(title).get();
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    final data = snapshot.data();
+    if (data == null) {
+      return null;
+    }
+
+    final questions = data['questions'];
+    if (questions is! List) {
+      return null;
+    }
+
+    final loaded = questions
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+
+    if (loaded.isEmpty) {
+      return null;
+    }
+
+    if (mounted) {
+      setState(() {
+        _generatedGameData = loaded;
+        _isGameCreated = true;
+        _gameNeedsRefresh = false;
+      });
+    }
+
+    return loaded;
   }
 
   String _extractFirstJsonArray(String raw) {
@@ -257,13 +304,13 @@ class _GamificationViewState extends State<GamificationView> {
 
   Widget _buildTeacherUI(BuildContext context) {
     final List<int> numOfQuestionsList = [5, 10, 15, 20];
-    
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Generate a Game from a Lesson: ',
+            'Generate a Game or AIRSS Session from a Lesson:',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
@@ -393,6 +440,19 @@ class _GamificationViewState extends State<GamificationView> {
               );
             }).toList(),
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              ElevatedButton(
+                child: const Text('Assign Game to Students'),
+                onPressed: () {
+                  _showAssignPopup(context);
+                },
+              ),
+              const SizedBox(width: 12),
+              const Text("Assigned to all students if left blank."),
+            ],
+          ),
           const SizedBox(height: 30),
           const Text('Game Mechanics:', style: TextStyle(fontSize: 18)),
           const SizedBox(height: 10),
@@ -409,7 +469,8 @@ class _GamificationViewState extends State<GamificationView> {
                   });
                 },
                 label: const Text('Number of Questions'),
-                dropdownMenuEntries: numOfQuestionsList.map<DropdownMenuEntry<int>>((int value) {
+                dropdownMenuEntries:
+                    numOfQuestionsList.map<DropdownMenuEntry<int>>((int value) {
                   return DropdownMenuEntry(
                     value: value,
                     label: value.toString(),
@@ -688,15 +749,6 @@ class _GamificationViewState extends State<GamificationView> {
                       );
                     },
                   );
-                },
-              ),
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: ElevatedButton(
-                child: const Text('Assign Game to Students'),
-                onPressed: () {
-                  _showAssignPopup(context);
                 },
               ),
             ),
@@ -1002,13 +1054,17 @@ class _GamificationViewState extends State<GamificationView> {
       });
 
       await gamesCollection.doc(_defaultGeneratedTitle()).set({
-        'basePointsPerSec': int.tryParse(_basePointsController.text.trim()) ?? 5,
+        'basePointsPerSec':
+            int.tryParse(_basePointsController.text.trim()) ?? 5,
         'description': _defaultGeneratedDescription(),
         'difficulty': _selectedDifficulty,
+        'llmType': _selectedLLM?.displayName ?? 'ChatGPT',
         'questions': parsedList,
         'roundTime': int.tryParse(_roundTimeController.text.trim()) ?? 20,
         'title': _defaultGeneratedTitle(),
-        'transitionTime': int.tryParse(_transitionTimeController.text.trim()) ?? 3,
+        'transitionTime':
+            int.tryParse(_transitionTimeController.text.trim()) ?? 3,
+        'assignedStudents': _selectedStudentIds,
       });
 
       print('✅ Game generated and added to Firebase: $parsedList');
@@ -1157,7 +1213,7 @@ $text
 
     final raw = await aiModel.postToLlm(prompt);
     final cleaned = _extractFirstJsonArray(raw);
-    return _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
+    final scenarios = _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
       if (item is! Map) {
         throw Exception('Scenario item is not an object');
       }
@@ -1170,6 +1226,21 @@ $text
         'openingLine': map['openingLine']?.toString() ?? '',
       };
     });
+
+    await FirebaseFirestore.instance
+        .collection('Games')
+        .doc(_defaultGeneratedTitle())
+        .set({
+      'title': _defaultGeneratedTitle(),
+      'description': _defaultGeneratedDescription(),
+      'gameType': 'AIRSS Simulation',
+      'llmType': _selectedLLM?.displayName ?? 'ChatGPT',
+      'questions': scenarios,
+      'assignedStudents': _selectedStudentIds,
+      'icon': 'record_voice_over_outlined',
+    });
+
+    return scenarios;
   }
 
   List<T> _parseJsonList<T>(String content, T Function(dynamic) mapper) {
@@ -1199,14 +1270,17 @@ $text
     int courseId, {
     Set<int>? specificStudentIds,
   }) async {
-    if (_generatedGameData == null || _generatedGameData!.isEmpty) {
+    final generatedData = await _loadGeneratedDataForAssignment();
+    if (generatedData == null || generatedData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                Text('Please generate the game content before assigning.')),
+          content: Text(
+              'Please generate the game or AIRSS session before assigning.'),
+        ),
       );
       return false;
     }
+
     final lmsService = LmsFactory.getLmsService();
     final students =
         await lmsService.getCourseParticipants(courseId.toString());
@@ -1242,9 +1316,8 @@ $text
       'gameType': gameType,
       'llmType': _selectedLLM?.displayName ?? 'ChatGPT',
       'settings': settings.toJson(),
-      'data': _generatedGameData ?? [],
+      'data': generatedData,
     });
-
     try {
       final assignedGame = AssignedGame(
         uuid: null,
@@ -1270,6 +1343,15 @@ $text
             .assignGame(AssignedGameScore(studentId: student.id, game: gameId));
       }));
 
+      await FirebaseFirestore.instance.collection('Games').doc(title).set({
+        'title': title,
+        'description': description,
+        'gameType': gameType,
+        'questions': generatedData,
+        'assignedStudents':
+            targetStudents.map((student) => student.id).toList(),
+      }, SetOptions(merge: true));
+
       await _refreshAssignments();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1294,7 +1376,6 @@ $text
     List<Course>? courses;
     int? selectedCourseId;
     List<Participant>? students;
-    Set<int> selectedStudentIds = {};
     bool isLoadingCourses = true;
     bool isLoadingStudents = false;
     bool isAssigning = false;
@@ -1327,7 +1408,7 @@ $text
                       setState(() {
                         students = fetchedStudents;
                         isLoadingStudents = false;
-                        selectedStudentIds.clear();
+                        _selectedStudentIds.clear();
                       });
                     });
                   }
@@ -1364,7 +1445,7 @@ $text
                             selectedCourseId = value;
                             isLoadingStudents = true;
                             students = null;
-                            selectedStudentIds.clear();
+                            _selectedStudentIds.clear();
                           });
                           lmsService
                               .getCourseParticipants(value.toString())
@@ -1372,7 +1453,7 @@ $text
                             setState(() {
                               students = fetchedStudents;
                               isLoadingStudents = false;
-                              selectedStudentIds.clear();
+                              _selectedStudentIds.clear();
                             });
                           });
                         },
@@ -1384,15 +1465,15 @@ $text
                         title: const Text('Select All Students'),
                         value: students != null &&
                             students!.isNotEmpty &&
-                            selectedStudentIds.length == students!.length,
+                            _selectedStudentIds.length == students!.length,
                         onChanged: (checked) {
                           setState(() {
                             if (checked == true) {
-                              selectedStudentIds = students!
+                              _selectedStudentIds = students!
                                   .map((student) => student.id)
                                   .toSet();
                             } else {
-                              selectedStudentIds.clear();
+                              _selectedStudentIds.clear();
                             }
                           });
                         },
@@ -1408,17 +1489,17 @@ $text
                             child: ListView(
                               children: students!
                                   .map((student) => CheckboxListTile(
-                                        value: selectedStudentIds
+                                        value: _selectedStudentIds
                                             .contains(student.id),
                                         title: Text(
                                             '${student.firstname} ${student.lastname}'),
                                         onChanged: (checked) {
                                           setState(() {
                                             if (checked == true) {
-                                              selectedStudentIds
+                                              _selectedStudentIds
                                                   .add(student.id);
                                             } else {
-                                              selectedStudentIds
+                                              _selectedStudentIds
                                                   .remove(student.id);
                                             }
                                           });
@@ -1441,7 +1522,7 @@ $text
                   onPressed: (isAssigning ||
                           isLoadingCourses ||
                           isLoadingStudents ||
-                          selectedStudentIds.isEmpty ||
+                          _selectedStudentIds.isEmpty ||
                           selectedCourseId == null)
                       ? null
                       : () async {
@@ -1449,14 +1530,17 @@ $text
                             isAssigning = true;
                           });
 
-                          if (_gameNeedsRefresh || _generatedGameData == null) {
+                          final generatedData =
+                              await _loadGeneratedDataForAssignment();
+                          if (generatedData == null || generatedData.isEmpty) {
                             setState(() {
                               isAssigning = false;
                             });
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                  content: Text(
-                                      'Please regenerate the game before assigning.')),
+                                content: Text(
+                                    'Please generate the game before assigning.'),
+                              ),
                             );
                             return;
                           }
@@ -1470,7 +1554,7 @@ $text
                             description,
                             gameType,
                             courseId,
-                            specificStudentIds: selectedStudentIds,
+                            specificStudentIds: _selectedStudentIds,
                           );
                           setState(() {
                             isAssigning = false;

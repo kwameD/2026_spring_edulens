@@ -66,6 +66,14 @@ class LoginNotifier with ChangeNotifier {
     return 'Google login failed: ${error.toString()}';
   }
 
+  String _formatMoodleLoginError(Object error) {
+    final message = error.toString();
+    return message.replaceAllMapped(
+      RegExp(r'uri=(https://[^ ]*/login/token\.php)\?[^ ]*'),
+      (match) => 'uri=${match.group(1)}?',
+    );
+  }
+
   // ---------------------------------------
   // Load from local storage
   // ---------------------------------------
@@ -172,7 +180,8 @@ class LoginNotifier with ChangeNotifier {
     } catch (e) {
       // Catch the exception, set isLoggedIn = false, set error
       _moodleState.isLoggedIn = false;
-      _moodleState.errorMessage = "Moodle login failed: ${e.toString()}";
+      _moodleState.errorMessage =
+          "Moodle login failed: ${_formatMoodleLoginError(e)}";
       notifyListeners();
     }
   }

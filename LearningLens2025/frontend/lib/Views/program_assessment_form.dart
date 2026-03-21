@@ -68,23 +68,31 @@ class _ProgramAssessmentFormState extends State<ProgramAssessmentForm> {
   bool get isFormValid =>
       selectedCourse != null &&
       selectedAssignment != null &&
-      outputFile != null;
+      selectedLanguage != null &&
+      outputFile != null &&
+      timeoutController.text.trim().isNotEmpty;
+
+  // Added: expose the selected course assignments safely for the dropdown.
+  List<Assignment> get _selectedCourseAssignments => selectedCourse?.essays ?? [];
 
   @override
   void initState() {
+    super.initState();
     // Default timeout of 30 seconds
     timeoutController.text = '30';
-    // Listen to changes in the text field to update button state
-    outputController.addListener(() {
-      setState(() {}); // triggers rebuild to refresh button enabled/disabled
+    // Added: preselect the first supported language so the form is immediately usable.
+    selectedLanguage = languages.first;
+    // Added: rebuild the form whenever the timeout field changes so the create button state updates.
+    timeoutController.addListener(() {
+      setState(() {});
     });
-    selectedLanguage = languages[0];
-    super.initState();
   }
 
   @override
   void dispose() {
     outputController.dispose();
+    timeoutController.dispose();
+    argsController.dispose();
     super.dispose();
   }
 
@@ -95,6 +103,7 @@ class _ProgramAssessmentFormState extends State<ProgramAssessmentForm> {
     }
   }
 
+  // Added: read uploaded file contents in a web-safe and desktop-safe way.
   String _getFileContents(PlatformFile file) {
     if (kIsWeb) {
       return utf8.decode(file.bytes!.toList());
@@ -213,7 +222,15 @@ class _ProgramAssessmentFormState extends State<ProgramAssessmentForm> {
     if (timeoutSeconds > 120) {
       _showSnackBar(SnackBar(
           backgroundColor: Colors.red[700],
-          content: Text('Maximum timeout cannot be longer than 2 minutes')));
+          content: const Text('Maximum timeout cannot be longer than 2 minutes')));
+      return;
+    }
+
+    if (timeoutSeconds <= 0) {
+      // Added: block invalid zero or negative values before hitting the backend.
+      _showSnackBar(SnackBar(
+          backgroundColor: Colors.red[700],
+          content: const Text('Timeout must be at least 1 second.')));
       return;
     }
 
@@ -239,11 +256,22 @@ class _ProgramAssessmentFormState extends State<ProgramAssessmentForm> {
       return;
     }
 
+    // Added: show a more specific success message when the service used local fallback mode.
+    var successMessage = 'Evaluation started successfully. Check back in a few minutes.';
+    try {
+      final decodedResponse = jsonDecode(response.body);
+      if (decodedResponse is Map<String, dynamic> &&
+          decodedResponse['message'] != null) {
+        successMessage = decodedResponse['message'].toString();
+      }
+    } catch (_) {
+      // Added: keep the default success message when the response body is not JSON.
+    }
+
     _showSnackBar(SnackBar(
       backgroundColor: Colors.green,
-      content:
-          Text('Evaluation started successfully. Check back in a few minutes.'),
-      duration: Duration(seconds: 8),
+      content: Text(successMessage),
+      duration: const Duration(seconds: 8),
     ));
 
     if (onEvaluationStarted != null) {
@@ -254,10 +282,93 @@ class _ProgramAssessmentFormState extends State<ProgramAssessmentForm> {
     Navigator.of(context).pop();
   }
 
+  // Added: fetch assignments lazily when a course is selected so the dropdown always has current data.
+  Future<void> _handleCourseSelection(Course? value) async {
+    if (value == null) {
+      setState(() {
+        // Added: clear dependent fields when the course is removed.
+        selectedCourse = null;
+        selectedAssignment = null;
+      });
+      return;
+    }
+
+    setState(() {
+      // Added: show the selected course immediately in the UI.
+      selectedCourse = value;
+      // Added: reset the assignment because the course changed.
+      selectedAssignment = null;
+      // Added: show a loading state while assignments refresh.
+      _isLoading = true;
+    });
+
+    try {
+      // Added: refresh the latest assignments from the LMS for the selected course.
+      await value.refreshEssays();
+    } finally {
+      if (mounted) {
+        setState(() {
+          // Added: end the temporary loading state after assignments finish loading.
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // Added: create a shared file picker button to keep the form layout consistent.
+  Widget _buildFilePickerRow({
+    required String buttonLabel,
+    required PlatformFile? selectedFile,
+    required ValueChanged<PlatformFile?> onSelected,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        ElevatedButton.icon(
+          icon: const Icon(Icons.upload_file),
+          label: Text(buttonLabel),
+          onPressed: () async {
+            // Added: limit uploads to txt files because the backend expects plain text cases.
+            final result = await FilePicker.platform.pickFiles(
+              type: FileType.custom,
+              allowedExtensions: ['txt'],
+              withData: kIsWeb,
+            );
+            final file = result?.files.single;
+            if (file == null) return;
+
+            // Added: bubble the selected file back to the form state.
+            onSelected(file);
+          },
+        ),
+        if (selectedFile != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F4FC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE6DDF0)),
+            ),
+            child: Text(selectedFile.name),
+          ),
+        if (selectedFile != null)
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              // Added: allow educators to remove a selected test file without reloading the page.
+              onSelected(null);
+            },
+          )
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: CustomAppBar(
           title: 'New Assessment Job',
           userprofileurl: lmsService.profileImage ?? '',
@@ -265,216 +376,199 @@ class _ProgramAssessmentFormState extends State<ProgramAssessmentForm> {
         body: LayoutBuilder(builder: (context, constraints) {
           return Center(
               child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
+                  constraints: const BoxConstraints(maxWidth: 720),
                   child: _buildForm(context)));
         }));
   }
 
   Widget _buildForm(BuildContext context) {
-    return Form(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          spacing: 12,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("New Program Assessment", style: TextStyle(fontSize: 24)),
-            // Courses Dropdown
-            DropdownButtonFormField<Course>(
-              decoration: InputDecoration(
-                labelText: "Courses",
-                border: OutlineInputBorder(),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE6DDF0)),
+        ),
+        child: Form(
+          child: Column(
+            spacing: 14,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'New Program Assessment',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
               ),
-              value: selectedCourse,
-              items: courses.map((course) {
-                return DropdownMenuItem(
-                  value: course,
-                  child: Text(course.fullName),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedCourse = value;
-                  selectedAssignment = null;
-                });
-              },
-            ),
-            // Assignments Dropdown
-            Opacity(
+              const Text(
+                'Choose a course, assignment, language, timeout, and expected outputs to launch a new automated code evaluation job.',
+                style: TextStyle(color: Color(0xFF6B6573)),
+              ),
+              // Courses Dropdown
+              DropdownButtonFormField<Course>(
+                decoration: const InputDecoration(
+                  labelText: 'Courses',
+                  border: OutlineInputBorder(),
+                ),
+                value: selectedCourse,
+                items: courses.map((course) {
+                  return DropdownMenuItem(
+                    value: course,
+                    child: Text(course.fullName),
+                  );
+                }).toList(),
+                onChanged: (value) async {
+                  // Added: refresh assignments whenever a different course is chosen.
+                  await _handleCourseSelection(value);
+                },
+              ),
+              // Assignments Dropdown
+              Opacity(
                 opacity: selectedCourse == null ? 0.5 : 1,
                 child: DropdownButtonFormField<Assignment>(
-                  decoration: InputDecoration(
-                    labelText: "Assignments",
+                  decoration: const InputDecoration(
+                    labelText: 'Assignments',
                     border: OutlineInputBorder(),
                   ),
                   value: selectedAssignment,
-                  items: selectedCourse == null
-                      ? []
-                      : courses
-                          .firstWhere((c) => c == selectedCourse)
-                          .essays!
-                          .map((assignment) {
-                          return DropdownMenuItem(
-                            value: assignment,
-                            child: Text(assignment.name),
-                          );
-                        }).toList(),
+                  items: _selectedCourseAssignments.map((assignment) {
+                    return DropdownMenuItem(
+                      value: assignment,
+                      child: Text(assignment.name),
+                    );
+                  }).toList(),
+                  onChanged: selectedCourse == null
+                      ? null
+                      : (value) {
+                          setState(() {
+                            selectedAssignment = value;
+                          });
+                        },
+                ),
+              ),
+              // Language selection dropdown
+              DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                    labelText: 'Language',
+                    border: OutlineInputBorder(),
+                  ),
+                  value: selectedLanguage,
+                  items: languages
+                      .map((lang) => DropdownMenuItem(
+                            value: lang,
+                            child: Text(lang),
+                          ))
+                      .toList(),
                   onChanged: (value) {
                     setState(() {
-                      selectedAssignment = value;
+                      selectedLanguage = value;
                     });
-                  },
-                )),
-            // Language selection dropdown
-            DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: "Language",
-                  border: OutlineInputBorder(),
-                ),
-                value: languages[0],
-                items: languages
-                    .map((lang) => DropdownMenuItem(
-                          value: lang,
-                          child: Text(lang),
-                        ))
-                    .toList(),
-                onChanged: (value) {
+                  }),
+              TextField(
+                  controller: timeoutController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly, // Only allows digits
+                    FilteringTextInputFormatter.allow(RegExp(
+                        r'^[1-9][0-9]*$|^0$')) // Allows only positive nubmers and zero
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Program Execution Timeout (in seconds)',
+                    border: OutlineInputBorder(),
+                    helperText: 'Recommended: 30 seconds. Maximum: 120 seconds.',
+                  )),
+              const Text(
+                'Note that students MUST submit a .zip file with the entry point of the program being in a file named entry.(c, cpp, java, py).',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              _buildFilePickerRow(
+                buttonLabel: 'Input File',
+                selectedFile: inputFile,
+                onSelected: (file) {
                   setState(() {
-                    selectedLanguage = value;
+                    // Added: store or clear the optional input file.
+                    inputFile = file;
                   });
-                }),
-            TextField(
-                controller: timeoutController,
-                keyboardType: TextInputType.number,
-                inputFormatters: <TextInputFormatter>[
-                  FilteringTextInputFormatter.digitsOnly, // Only allows digits
-                  FilteringTextInputFormatter.allow(RegExp(
-                      r'^[1-9][0-9]*$|^0$')) // Allows only positive nubmers and zero
-                ],
-                decoration: InputDecoration(
-                  labelText: 'Program Execution Timeout (in seconds)',
-                  border: OutlineInputBorder(),
-                )),
-            Text(
-              'Note that students MUST submit a .zip file with the entry point '
-              'of the program being in a file named entry.(c, cpp, java, py).',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Row(spacing: 8, children: [
-              // Expected input file upload
-              ElevatedButton.icon(
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Input File'),
-                  onPressed: () async {
-                    final result = await FilePicker.platform.pickFiles(
-                        type: FileType.custom, allowedExtensions: ['txt']);
-                    final file = result?.files.single;
-                    if (file == null) return;
-
-                    setState(() {
-                      inputFile = file;
-                    });
-                  }),
-              if (inputFile != null) Text(inputFile!.name),
-              if (inputFile != null)
-                IconButton(
-                  icon: Icon(Icons.close),
-                  onPressed: () {
-                    setState(() {
-                      inputFile = null;
-                    });
-                  },
-                )
-            ]),
-            Row(spacing: 8, children: [
-              // Expected output file upload
-              ElevatedButton.icon(
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Expected Output File'),
-                  onPressed: () async {
-                    final result = await FilePicker.platform.pickFiles(
-                        type: FileType.custom, allowedExtensions: ['txt']);
-                    final file = result?.files.single;
-                    if (file == null) return;
-
-                    setState(() {
-                      outputFile = file;
-                    });
-                  }),
-              if (outputFile != null) Text(outputFile!.name),
-              if (outputFile != null)
-                IconButton(
-                  icon: Icon(Icons.close),
-                  onPressed: () {
-                    setState(() {
-                      outputFile = null;
-                    });
-                  },
-                )
-            ]),
-            SizedBox(height: 20),
-            if (_isLoading)
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 40, vertical: 16), // bigger size
-                  textStyle: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold), // bigger text
-                  backgroundColor: Colors.deepPurpleAccent, // primary color
-                  foregroundColor: Colors.white, // text color
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12), // rounded corners
+                },
+              ),
+              _buildFilePickerRow(
+                buttonLabel: 'Expected Output File',
+                selectedFile: outputFile,
+                onSelected: (file) {
+                  setState(() {
+                    // Added: store or clear the required expected output file.
+                    outputFile = file;
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              if (_isLoading)
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 40, vertical: 16), // bigger size
+                    textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold), // bigger text
+                    backgroundColor: const Color(0xFF7C4DFF), // primary color
+                    foregroundColor: Colors.white, // text color
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12), // rounded corners
+                    ),
+                    elevation: 0,
                   ),
-                  elevation: 5, // shadow for prominence
-                ),
-                onPressed: null,
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2),
-                ),
-              )
-            else
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 40, vertical: 16), // bigger size
-                  textStyle: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold), // bigger text
-                  backgroundColor: Colors.deepPurpleAccent, // primary color
-                  foregroundColor: Colors.white, // text color
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12), // rounded corners
+                  onPressed: null,
+                  child: const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
                   ),
-                  elevation: 5, // shadow for prominence
-                ),
-                onPressed: !isFormValid
-                    ? null
-                    : () async {
-                        setState(() {
-                          _isLoading = true;
-                        });
-
-                        try {
-                          await _startEvaluation(
-                              selectedCourse!,
-                              selectedAssignment!,
-                              inputFile != null
-                                  ? _getFileContents(inputFile!)
-                                  : '',
-                              _getFileContents(outputFile!),
-                              selectedLanguage!,
-                              int.parse(timeoutController.text));
-                        } finally {
+                )
+              else
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 40, vertical: 16), // bigger size
+                    textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold), // bigger text
+                    backgroundColor: const Color(0xFF7C4DFF), // primary color
+                    foregroundColor: Colors.white, // text color
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12), // rounded corners
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: !isFormValid
+                      ? null
+                      : () async {
                           setState(() {
-                            _isLoading = false;
+                            _isLoading = true;
                           });
-                        }
-                      },
-                child: Text("Create"),
-              )
-          ],
+
+                          try {
+                            await _startEvaluation(
+                                selectedCourse!,
+                                selectedAssignment!,
+                                inputFile != null
+                                    ? _getFileContents(inputFile!)
+                                    : '',
+                                _getFileContents(outputFile!),
+                                selectedLanguage!,
+                                int.parse(timeoutController.text));
+                          } finally {
+                            if (mounted) {
+                              setState(() {
+                                _isLoading = false;
+                              });
+                            }
+                          }
+                        },
+                  child: const Text('Create'),
+                )
+            ],
+          ),
         ),
       ),
     );

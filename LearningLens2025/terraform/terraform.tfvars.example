@@ -15,7 +15,7 @@ project_name = "edulense"
 github_token = "ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 # GitHub repository URL
-github_repository = "https://github.com/rappleb1/2025_fall/"
+github_repository = "https://github.com/kwameD/2026_spring_edulens.git"
 
 # GitHub branch to deploy
 github_branch = "team_e"

@@ -109,8 +109,10 @@ class LocalStorageService {
 
   /// Retrieves Moodle URL from storage or dotenv.
   static String getMoodleUrl() {
-    String url =
-        _prefs.getString('moodleUrl') ?? dotenv.env['MOODLE_URL'] ?? '';
+    final envUrl = dotenv.env['MOODLE_URL'] ?? '';
+    String url = envUrl.trim().isNotEmpty
+        ? envUrl
+        : _prefs.getString('moodleUrl') ?? '';
     if (url.endsWith('/')) {
       url = url.substring(0, url.length - 1);
     }
@@ -149,7 +151,43 @@ class LocalStorageService {
 
   /// Retrieves primary color.
   static String getPrimaryColor() {
-    return _prefs.getString('primaryColor') ?? '#FFFFFF'; // Default to white
+    return _prefs.getString('primaryColor') ?? '#FF7C4DFF'; // Default to EduLense purple
+  }
+
+  /// Saves the secondary accent color used by multicolor themes.
+  static void saveSecondaryColor(String colorHex) {
+    _prefs.setString('secondaryColor', colorHex);
+  }
+
+  /// Retrieves the secondary accent color for multicolor theme previews and gradients.
+  static String getSecondaryColor() {
+    return _prefs.getString('secondaryColor') ?? '#FFB388FF';
+  }
+
+  /// Saves the selected named theme preset id.
+  static void saveThemePresetId(String presetId) {
+    _prefs.setString('themePresetId', presetId);
+  }
+
+  /// Retrieves the last selected named theme preset id.
+  static String getThemePresetId() {
+    return _prefs.getString('themePresetId') ?? 'classic-purple';
+  }
+
+
+  /// Saves locally cached program assessment jobs for fallback mode.
+  static void saveProgramAssessmentCache(String jobsJson) {
+    _prefs.setString('programAssessmentCache', jobsJson);
+  }
+
+  /// Retrieves locally cached program assessment jobs used when the backend is unavailable.
+  static String getProgramAssessmentCache() {
+    return _prefs.getString('programAssessmentCache') ?? '[]';
+  }
+
+  /// Clears the locally cached fallback program assessment jobs.
+  static void clearProgramAssessmentCache() {
+    _prefs.remove('programAssessmentCache');
   }
 
   /// Saves OpenAI API key.
@@ -296,9 +334,11 @@ class LocalStorageService {
   }
 
   static String getGoogleClientId() {
-    return _prefs.getString('GOOGLE_CLIENT_ID') ??
-        dotenv.env['GOOGLE_CLIENT_ID'] ??
-        '';
+    final envClientId = dotenv.env['GOOGLE_CLIENT_ID'] ?? '';
+    if (envClientId.trim().isNotEmpty) {
+      return envClientId;
+    }
+    return _prefs.getString('GOOGLE_CLIENT_ID') ?? '';
   }
 
   static void saveGoogleClientId(String clientId) {

@@ -25,7 +25,7 @@ variable "github_token" {
 variable "github_repository" {
   description = "GitHub repository URL"
   type        = string
-  default     = "https://github.com/rappleb1/2025_fall/"
+  default     = "https://github.com/kwameD/2026_spring_edulens.git"
 }
 
 variable "github_branch" {
@@ -43,6 +43,11 @@ variable "moodle_password" {
   description = "Moodle service account password"
   type        = string
   sensitive   = true
+}
+
+variable "moodle_url" {
+  description = "Base URL for the Moodle instance"
+  type        = string
 }
 
 variable "lambda_timeout" {
