@@ -119,52 +119,6 @@ class _GamificationViewState extends State<GamificationView> {
     return 'Auto-generated from ${_selectedFile?.name ?? 'uploaded class material'}.';
   }
 
-  Future<List<Map<String, dynamic>>?> _loadGeneratedDataForAssignment() async {
-    if (_generatedGameData != null && _generatedGameData!.isNotEmpty) {
-      return _generatedGameData;
-    }
-
-    final title = _defaultGeneratedTitle();
-    if (title.isEmpty) {
-      return null;
-    }
-
-    final snapshot =
-        await FirebaseFirestore.instance.collection('Games').doc(title).get();
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    final data = snapshot.data();
-    if (data == null) {
-      return null;
-    }
-
-    final questions = data['questions'];
-    if (questions is! List) {
-      return null;
-    }
-
-    final loaded = questions
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
-
-    if (loaded.isEmpty) {
-      return null;
-    }
-
-    if (mounted) {
-      setState(() {
-        _generatedGameData = loaded;
-        _isGameCreated = true;
-        _gameNeedsRefresh = false;
-      });
-    }
-
-    return loaded;
-  }
-
   String _extractFirstJsonArray(String raw) {
     var cleaned = raw
         .replaceAll(RegExp(r'```json', multiLine: true), '')
@@ -1270,16 +1224,6 @@ $text
     int courseId, {
     Set<int>? specificStudentIds,
   }) async {
-    final generatedData = await _loadGeneratedDataForAssignment();
-    if (generatedData == null || generatedData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Please generate the game or AIRSS session before assigning.'),
-        ),
-      );
-      return false;
-    }
 
     final lmsService = LmsFactory.getLmsService();
     final students =
@@ -1307,52 +1251,7 @@ $text
       return false;
     }
 
-    final now = DateTime.now();
-    final gameTypeEnum = _gameTypeFromLabel(gameType);
-    final settings = _buildGameSettings();
-    final contentPayload = jsonEncode({
-      'title': title,
-      'description': description,
-      'gameType': gameType,
-      'llmType': _selectedLLM?.displayName ?? 'ChatGPT',
-      'settings': settings.toJson(),
-      'data': generatedData,
-    });
     try {
-      final assignedGame = AssignedGame(
-        uuid: null,
-        courseId: courseId,
-        gameType: gameTypeEnum,
-        title: title,
-        gameData: contentPayload,
-        assignedDate: now,
-        assignedBy: teacherId,
-      );
-      final gameResponse = await _gamificationService.createGame(assignedGame);
-      final responseBody = jsonDecode(gameResponse.body);
-      final gameId = responseBody is List && responseBody.isNotEmpty
-          ? responseBody.first["game_id"]
-          : responseBody["game_id"];
-      if (gameId == null) {
-        throw Exception(
-            'Game was created, but no game id was returned by the server.');
-      }
-
-      await Future.wait(targetStudents.map((student) {
-        return _gamificationService
-            .assignGame(AssignedGameScore(studentId: student.id, game: gameId));
-      }));
-
-      await FirebaseFirestore.instance.collection('Games').doc(title).set({
-        'title': title,
-        'description': description,
-        'gameType': gameType,
-        'questions': generatedData,
-        'assignedStudents':
-            targetStudents.map((student) => student.id).toList(),
-      }, SetOptions(merge: true));
-
-      await _refreshAssignments();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1530,21 +1429,6 @@ $text
                             isAssigning = true;
                           });
 
-                          final generatedData =
-                              await _loadGeneratedDataForAssignment();
-                          if (generatedData == null || generatedData.isEmpty) {
-                            setState(() {
-                              isAssigning = false;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Please generate the game before assigning.'),
-                              ),
-                            );
-                            return;
-                          }
-
                           final title = _defaultGeneratedTitle();
                           final description = _defaultGeneratedDescription();
                           final gameType = selectedGameType ?? 'Unknown';
@@ -1673,14 +1557,6 @@ $text
     if (raw.contains('match')) return GameType.MATCHING;
     if (raw.contains('flash')) return GameType.FLASHCARD;
     if (raw.contains('airss')) return GameType.AIRSS;
-    return GameType.QUIZ;
-  }
-
-  GameType _gameTypeFromLabel(String label) {
-    final normalized = label.toLowerCase();
-    if (normalized.contains('match')) return GameType.MATCHING;
-    if (normalized.contains('flash')) return GameType.FLASHCARD;
-    if (normalized.contains('airss')) return GameType.AIRSS;
     return GameType.QUIZ;
   }
 

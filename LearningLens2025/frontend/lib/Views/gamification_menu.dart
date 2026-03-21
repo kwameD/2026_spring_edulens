@@ -148,28 +148,15 @@ class _GameMenuState extends State<GamificationMenu> {
               width: 350,
               height: 140,
               child: NavigationCard(
-                title: 'AIRSS Sessions',
-                description: 'Launch the roleplay session builder for high-stakes stakeholder simulations.',
-                icon: Icons.record_voice_over_outlined,
+                title: 'Games', 
+                description: 'View and play your current games.', 
+                icon: Icons.library_books_outlined,
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => GamificationView(viewGames: false,))
+                  MaterialPageRoute(builder: (context) => ViewGamesList())
                 ),
               )
             ),
-          SizedBox(
-            width: 350,
-            height: 140,
-            child: NavigationCard(
-              title: 'Games', 
-              description: 'View and play your current games.', 
-              icon: Icons.library_books_outlined,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ViewGamesList())
-              ),
-            )
-          ),
           SizedBox(
             width: 350,
             height: 140,
