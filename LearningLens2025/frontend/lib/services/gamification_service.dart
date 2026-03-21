@@ -6,7 +6,7 @@ import 'package:learninglens_app/Api/lms/enum/lms_enum.dart';
 import 'package:learninglens_app/services/api_service.dart';
 import 'package:learninglens_app/services/local_storage_service.dart';
 
-enum GameType { FLASHCARD, MATCHING, QUIZ }
+enum GameType { FLASHCARD, MATCHING, QUIZ, AIRSS }
 
 /// Represents a program assessment job
 /// Check the handleGET method in code_eval/index.mjs for properties
@@ -41,6 +41,7 @@ class AssignedGameScore {
   final int? maxScore;
   double? score;
   final String game;
+  final Map<String, dynamic>? sessionPayload;
 
   AssignedGameScore(
       {required this.studentId,
@@ -49,6 +50,7 @@ class AssignedGameScore {
       this.rawCorrect,
       this.maxScore,
       this.score,
+      this.sessionPayload,
       this.uuid});
 }
 
@@ -144,6 +146,7 @@ class GamificationService {
     double score, {
     int? rawCorrect,
     int? maxScore,
+    Map<String, dynamic>? sessionPayload,
   }) async {
     final uri = _requireUri('completeGame');
     return await ApiService().httpPost(uri,
@@ -153,6 +156,7 @@ class GamificationService {
           'score': score,
           'rawCorrect': rawCorrect,
           'maxScore': maxScore,
+          'sessionPayload': sessionPayload,
         }));
   }
 
@@ -203,6 +207,20 @@ class GamificationService {
 
       final rawData = eval['data'];
       final gameData = rawData is String ? rawData : jsonEncode(rawData);
+      final rawPayload = eval['session_payload'];
+      Map<String, dynamic>? sessionPayload;
+      if (rawPayload is String && rawPayload.trim().isNotEmpty) {
+        final decodedPayload = jsonDecode(rawPayload);
+        if (decodedPayload is Map<String, dynamic>) {
+          sessionPayload = decodedPayload;
+        } else if (decodedPayload is Map) {
+          sessionPayload = Map<String, dynamic>.from(decodedPayload);
+        }
+      } else if (rawPayload is Map<String, dynamic>) {
+        sessionPayload = rawPayload;
+      } else if (rawPayload is Map) {
+        sessionPayload = Map<String, dynamic>.from(rawPayload);
+      }
 
       final rawType = eval['game_type'];
       GameType type;
@@ -230,7 +248,8 @@ class GamificationService {
               maxScore: eval['max_score'] == null
                   ? null
                   : int.tryParse(eval['max_score'].toString()),
-              score: parsedScore));
+              score: parsedScore,
+              sessionPayload: sessionPayload));
     }).toList();
   }
 

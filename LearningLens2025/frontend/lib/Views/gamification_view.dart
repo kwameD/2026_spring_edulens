@@ -19,6 +19,7 @@ import 'package:learninglens_app/services/local_storage_service.dart';
 import 'package:learninglens_app/Games/quiz_game.dart';
 import 'package:learninglens_app/Games/matching_game.dart';
 import 'package:learninglens_app/Games/flashcard_game.dart';
+import 'package:learninglens_app/Games/airss_simulation.dart';
 import 'package:learninglens_app/Games/game_result.dart';
 import 'package:learninglens_app/services/ai_file_service.dart';
 import 'package:learninglens_app/Api/llm/enum/llm_enum.dart';
@@ -351,6 +352,7 @@ class _GamificationViewState extends State<GamificationView> {
               _gameType('Quiz Game', Icons.quiz),
               _gameType('Matching', Icons.compare_arrows),
               _gameType('Flashcards', Icons.memory),
+              _gameType('AIRSS Simulation', Icons.record_voice_over_outlined),
             ],
           ),
           const SizedBox(height: 30),
@@ -581,6 +583,9 @@ class _GamificationViewState extends State<GamificationView> {
                     } else if (_selectedGameType == 'Flashcards') {
                       response =
                           await generateFlashcardsFromText(text, aiModel);
+                    } else if (_selectedGameType == 'AIRSS Simulation') {
+                      response =
+                          await generateAirssSimulationFromText(text, aiModel);
                     } else {
                       throw Exception("Unknown game type: $_selectedGameType");
                     }
@@ -638,29 +643,37 @@ class _GamificationViewState extends State<GamificationView> {
                           _generatedGameData ?? [];
                       final settings = _buildGameSettings();
 
-                      switch (_selectedGameType) {
-                        case 'Quiz Game':
-                          previewContent = QuizGame(
-                            questions: gameData,
-                            settings: settings,
-                            onComplete: (_) {},
-                            previewMode: true,
-                          );
-                        case 'Matching':
-                          previewContent = MatchingGame(
-                            pairs: gameData,
-                            settings: settings,
-                            onComplete: (_) {},
-                            previewMode: true,
-                          );
-                        case 'Flashcards':
-                          previewContent = FlashcardGame(
-                            questions: gameData,
-                            onComplete: () {},
-                            previewMode: true,
-                          );
-                        default:
-                          previewContent = const Text('No game type selected.');
+                      if (_selectedGameType == 'Quiz Game') {
+                        previewContent = QuizGame(
+                          questions: gameData,
+                          settings: settings,
+                          onComplete: (_) {},
+                          previewMode: true,
+                        );
+                      } else if (_selectedGameType == 'Matching') {
+                        previewContent = MatchingGame(
+                          pairs: gameData,
+                          settings: settings,
+                          onComplete: (_) {},
+                          previewMode: true,
+                        );
+                      } else if (_selectedGameType == 'Flashcards') {
+                        previewContent = FlashcardGame(
+                          questions: gameData,
+                          onComplete: () {},
+                          previewMode: true,
+                        );
+                      } else if (_selectedGameType == 'AIRSS Simulation') {
+                        previewContent = AirssSimulationGame(
+                          scenarios: gameData,
+                          title: _defaultGeneratedTitle(),
+                          description: _defaultGeneratedDescription(),
+                          llmType: _selectedLLM?.displayName ?? 'ChatGPT',
+                          previewMode: true,
+                          onComplete: (_) {},
+                        );
+                      } else {
+                        previewContent = const Text('No game type selected.');
                       }
 
                       return AlertDialog(
@@ -874,39 +887,49 @@ class _GamificationViewState extends State<GamificationView> {
                       }
 
                       Widget gameView;
-                      switch (type) {
-                        case GameType.QUIZ:
-                          gameView = QuizGame(
-                            questions: data,
-                            settings: settings,
-                            onComplete: (result) {
-                              _recordGameResult(game, result);
-                            },
-                            previewMode: false,
-                          );
-                        case GameType.MATCHING:
-                          gameView = MatchingGame(
-                            pairs: data,
-                            settings: settings,
-                            onComplete: (result) {
-                              _recordGameResult(game, result);
-                            },
-                            previewMode: false,
-                          );
-                        case GameType.FLASHCARD:
-                          gameView = FlashcardGame(
-                            questions: data,
-                            onComplete: () {
-                              _recordGameResult(
-                                game,
-                                GamePlayResult(
-                                  score: data.length,
-                                  maxScore: data.length,
-                                ),
-                              );
-                            },
-                            previewMode: false,
-                          );
+                      if (type == GameType.QUIZ) {
+                        gameView = QuizGame(
+                          questions: data,
+                          settings: settings,
+                          onComplete: (result) {
+                            _recordGameResult(game, result);
+                          },
+                          previewMode: false,
+                        );
+                      } else if (type == GameType.MATCHING) {
+                        gameView = MatchingGame(
+                          pairs: data,
+                          settings: settings,
+                          onComplete: (result) {
+                            _recordGameResult(game, result);
+                          },
+                          previewMode: false,
+                        );
+                      } else if (type == GameType.FLASHCARD) {
+                        gameView = FlashcardGame(
+                          questions: data,
+                          onComplete: () {
+                            _recordGameResult(
+                              game,
+                              GamePlayResult(
+                                score: data.length,
+                                maxScore: data.length,
+                              ),
+                            );
+                          },
+                          previewMode: false,
+                        );
+                      } else {
+                        gameView = AirssSimulationGame(
+                          scenarios: data,
+                          title: content['title']?.toString() ?? game.title,
+                          description: content['description']?.toString() ?? '',
+                          llmType: content['llmType']?.toString() ?? 'ChatGPT',
+                          previewMode: false,
+                          onComplete: (result) {
+                            _recordGameResult(game, result);
+                          },
+                        );
                       }
 
                       showDialog(
@@ -1111,6 +1134,44 @@ $text
     }
   }
 
+  Future<List<Map<String, dynamic>>> generateAirssSimulationFromText(
+      String text, LLM aiModel) async {
+    final prompt = '''
+You are building an AIRSS (AI Role Simulation Sessions) activity from curriculum content.
+
+Generate exactly 3 distinct high-pressure professional scenarios.
+Return a VALID JSON ARRAY ONLY.
+
+Each object must contain:
+{
+  "title": "short title",
+  "objective": "single-sentence objective",
+  "persona": "specific difficult stakeholder persona",
+  "successCriteria": "short success criteria",
+  "openingLine": "first stakeholder line for round 1"
+}
+
+Curriculum:
+$text
+''';
+
+    final raw = await aiModel.postToLlm(prompt);
+    final cleaned = _extractFirstJsonArray(raw);
+    return _parseJsonList<Map<String, dynamic>>(cleaned, (item) {
+      if (item is! Map) {
+        throw Exception('Scenario item is not an object');
+      }
+      final map = Map<String, dynamic>.from(item);
+      return {
+        'title': map['title']?.toString() ?? 'Untitled Scenario',
+        'objective': map['objective']?.toString() ?? '',
+        'persona': map['persona']?.toString() ?? '',
+        'successCriteria': map['successCriteria']?.toString() ?? '',
+        'openingLine': map['openingLine']?.toString() ?? '',
+      };
+    });
+  }
+
   List<T> _parseJsonList<T>(String content, T Function(dynamic) mapper) {
     String normalizedResult = content.trim();
     // Remove markdown code block wrappers if present.
@@ -1179,6 +1240,7 @@ $text
       'title': title,
       'description': description,
       'gameType': gameType,
+      'llmType': _selectedLLM?.displayName ?? 'ChatGPT',
       'settings': settings.toJson(),
       'data': _generatedGameData ?? [],
     });
@@ -1526,6 +1588,7 @@ $text
     final raw = value?.toString().toLowerCase() ?? '';
     if (raw.contains('match')) return GameType.MATCHING;
     if (raw.contains('flash')) return GameType.FLASHCARD;
+    if (raw.contains('airss')) return GameType.AIRSS;
     return GameType.QUIZ;
   }
 
@@ -1533,6 +1596,7 @@ $text
     final normalized = label.toLowerCase();
     if (normalized.contains('match')) return GameType.MATCHING;
     if (normalized.contains('flash')) return GameType.FLASHCARD;
+    if (normalized.contains('airss')) return GameType.AIRSS;
     return GameType.QUIZ;
   }
 
@@ -1559,6 +1623,8 @@ $text
         return '🔗';
       case GameType.FLASHCARD:
         return '🃏';
+      case GameType.AIRSS:
+        return '🎭';
     }
   }
 
@@ -1570,6 +1636,8 @@ $text
         return 'Matching Game';
       case GameType.FLASHCARD:
         return 'Flashcards';
+      case GameType.AIRSS:
+        return 'AIRSS Simulation';
     }
   }
 
@@ -1596,6 +1664,7 @@ $text
         normalizedScore,
         rawCorrect: result.score,
         maxScore: result.maxScore,
+        sessionPayload: result.evidencePayload,
       );
       if (response.statusCode != 200) {
         throw Exception('Server returned ${response.statusCode}');
@@ -1766,6 +1835,7 @@ $text
                         statusText: statusText,
                         assignedDate: game.assignedDate,
                         isCompleted: isCompleted,
+                        evidencePayload: game.score?.sessionPayload,
                       ),
                     );
                   }
@@ -1819,6 +1889,13 @@ $text
                                         TextStyle(fontWeight: FontWeight.w600),
                                   ),
                                 ),
+                                DataColumn(
+                                  label: Text(
+                                    'Evidence',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
                               ],
                               rows: rows
                                   .map(
@@ -1843,6 +1920,21 @@ $text
                                                 .format(row.assignedDate),
                                           ),
                                         ),
+                                        DataCell(
+                                          row.evidencePayload == null
+                                              ? const Text('N/A')
+                                              : TextButton(
+                                                  onPressed: () {
+                                                    _showEvidenceBundleDialog(
+                                                      row.studentName,
+                                                      row.gameTitle,
+                                                      row.evidencePayload!,
+                                                    );
+                                                  },
+                                                  child:
+                                                      const Text('View Bundle'),
+                                                ),
+                                        ),
                                       ],
                                     ),
                                   )
@@ -1864,6 +1956,62 @@ $text
       },
     );
   }
+
+  void _showEvidenceBundleDialog(
+    String studentName,
+    String gameTitle,
+    Map<String, dynamic> payload,
+  ) {
+    final teacherSummary = payload['teacher_summary'] is Map<String, dynamic>
+        ? payload['teacher_summary'] as Map<String, dynamic>
+        : payload['teacher_summary'] is Map
+            ? Map<String, dynamic>.from(payload['teacher_summary'] as Map)
+            : payload;
+    final transcript = payload['transcript'] as List<dynamic>? ?? const [];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$studentName • $gameTitle'),
+        content: SizedBox(
+          width: 620,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(
+                  const JsonEncoder.withIndent('  ').convert(teacherSummary),
+                ),
+                if (transcript.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Transcript',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  ...transcript.map((entry) {
+                    final item = entry is Map<String, dynamic>
+                        ? entry
+                        : Map<String, dynamic>.from(entry as Map);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('${item['label']}: ${item['content']}'),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ScoreRow {
@@ -1873,6 +2021,7 @@ class _ScoreRow {
   final String statusText;
   final DateTime assignedDate;
   final bool isCompleted;
+  final Map<String, dynamic>? evidencePayload;
 
   const _ScoreRow({
     required this.studentName,
@@ -1881,5 +2030,6 @@ class _ScoreRow {
     required this.statusText,
     required this.assignedDate,
     required this.isCompleted,
+    this.evidencePayload,
   });
 }

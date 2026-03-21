@@ -63,10 +63,12 @@ class GamePlayResult {
   final int score;
   final int maxScore;
   final DateTime completedAt;
+  final Map<String, dynamic>? evidencePayload;
 
   GamePlayResult({
     required this.score,
     required this.maxScore,
     DateTime? completedAt,
+    this.evidencePayload,
   }) : completedAt = completedAt ?? DateTime.now();
 }
