@@ -17,6 +17,8 @@ import 'package:intl/intl.dart';
 import 'package:learninglens_app/services/prompt_builder_service.dart';
 import 'package:learninglens_app/Api/llm/local_llm_service.dart'; // local llm
 import 'package:flutter/foundation.dart';
+import 'package:learninglens_app/theme/app_theme_helper.dart';
+import 'package:learninglens_app/widgets/security_compliance_banner.dart';
 
 class SubmissionList extends StatefulWidget {
   final int assignmentId;
@@ -224,6 +226,13 @@ class SubmissionListState extends State<SubmissionList> {
 
             return Column(
               children: [
+                // Added: remind teachers that qualitative feedback generation stays inside university-controlled workflows.
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: SecurityComplianceBanner(
+                    label: 'Teacher-controlled evaluation feedback',
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Row(
@@ -485,10 +494,8 @@ class SubmissionListState extends State<SubmissionList> {
                                                                     color: (llm == LlmType.LOCAL && LocalStorageService.getLocalLLMPath() != "" && _localLlmAvail) ||
                                                                             LocalStorageService.userHasLlmKey(
                                                                                 llm)
-                                                                        ? Colors
-                                                                            .black87
-                                                                        : Colors
-                                                                            .grey,
+                                                                        ? Theme.of(context).colorScheme.onSurface
+                                                                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
                                                                   ),
                                                                 ),
                                                               );
@@ -499,12 +506,11 @@ class SubmissionListState extends State<SubmissionList> {
                                                                   .LOCAL) ...[
                                                             const SizedBox(
                                                                 height: 6),
-                                                            const Text(
+                                                            Text(
                                                               "Running a Large Language Model (LLM) requires substantial hardware resources. The recommended model for is 7B or higher reasoning (Qwen) models. Using smaller models may produce inaccurate or misleading responses.\nFor best results, we recommend using the external LLM.\nPlease use the local LLM responsibly and independently verify any critical information.",
                                                               style: TextStyle(
                                                                 fontSize: 13,
-                                                                color: Colors
-                                                                    .black54,
+                                                                color: AppThemeHelper.mutedColor(context),
                                                               ),
                                                             ),
                                                           ],
@@ -633,6 +639,44 @@ class SubmissionListState extends State<SubmissionList> {
                                                                           detail),
                                                                     ))
                                                                 .toList(),
+                                                          ),
+                                                          SizedBox(height: 8),
+                                                          // Added: quick presets for supportive versus critical qualitative feedback styles.
+                                                          Wrap(
+                                                            spacing: 8,
+                                                            runSpacing: 8,
+                                                            children: [
+                                                              OutlinedButton(
+                                                                onPressed: () {
+                                                                  setState(() {
+                                                                    // Added: preset supportive, detailed teacher feedback.
+                                                                    toneSelectionMap[participant.id] = 'Formal';
+                                                                    voiceSelectionMap[participant.id] = 'Supportive';
+                                                                    detailLevelSelectionMap[participant.id] = 'Detailed';
+                                                                  });
+                                                                },
+                                                                child: const Text('Supportive preset'),
+                                                              ),
+                                                              OutlinedButton(
+                                                                onPressed: () {
+                                                                  setState(() {
+                                                                    // Added: preset more critical but still constructive feedback.
+                                                                    toneSelectionMap[participant.id] = 'Straightforward';
+                                                                    voiceSelectionMap[participant.id] = 'Constructive';
+                                                                    detailLevelSelectionMap[participant.id] = 'Detailed';
+                                                                  });
+                                                                },
+                                                                child: const Text('Critical preset'),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(height: 6),
+                                                          Text(
+                                                            'Integrity nudge: students should explain why they accepted, revised, or rejected AI suggestions before final submission.',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: AppThemeHelper.mutedColor(context),
+                                                            ),
                                                           ),
                                                           SizedBox(height: 4),
                                                         ],

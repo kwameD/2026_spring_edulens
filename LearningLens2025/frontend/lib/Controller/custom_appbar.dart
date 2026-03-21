@@ -38,10 +38,17 @@ class _CustomAppBarState extends State<CustomAppBar> {
         canAccessApp && LocalStorageService.getUserRole() == UserRole.teacher;
 
     return AppBar(
+      // Added: use the active primary container while explicitly setting readable foreground colors.
       backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      // Added: keep text and icons high-contrast in both light and dark mode.
+      foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
       title: Text(
         widget.title,
         textAlign: TextAlign.center,
+        style: TextStyle(
+          // Added: force the app-bar title to use the readable onPrimaryContainer color.
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+        ),
       ),
       centerTitle: true,
       leadingWidth: 200,
@@ -158,6 +165,10 @@ class _CustomAppBarState extends State<CustomAppBar> {
                   value == LmsType.GOOGLE
                       ? 'Google Classroom'
                       : 'Moodle Classroom',
+                  style: TextStyle(
+                    // Added: keep the classroom selector text readable in dark mode.
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
                 ),
               );
             }).toList(),

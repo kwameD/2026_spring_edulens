@@ -12,6 +12,10 @@ import 'package:learninglens_app/Api/llm/grok_api.dart';
 import 'package:learninglens_app/Api/llm/enum/llm_enum.dart';
 import 'package:learninglens_app/Api/llm/local_llm_service.dart'; // local llm
 import 'package:flutter/foundation.dart';
+import 'package:learninglens_app/theme/app_theme_helper.dart';
+import 'package:learninglens_app/widgets/security_compliance_banner.dart';
+import 'package:learninglens_app/widgets/visual_materials_panel.dart';
+import 'package:learninglens_app/widgets/workflow_support_panel.dart';
 
 // Required Components:
 // 2 Dropdowns: 1 for the Grade Level and 1 for the Point Scale
@@ -58,6 +62,25 @@ class _EssayGenerationState extends State<EssayGeneration> {
       TextEditingController();
   final TextEditingController _additionalCustomizationController =
       TextEditingController();
+
+  // Added: allow educators to choose a rubric template family for cleaner rubric generation.
+  String _selectedSubjectTemplate = 'General';
+
+  // Added: allow educators to identify the assignment type for more complete rubric descriptors.
+  String _selectedAssignmentType = 'Essay';
+
+  // Added: store optional instructional visuals that can be embedded into exports and teacher materials.
+  List<VisualMaterialAsset> _visualAssets = const [];
+
+  // Added: store workflow-stage markers and AI-literacy prompts used during task creation.
+  WorkflowSupportState _workflowSupportState = const WorkflowSupportState(
+    currentStage: 'Understand Prompt',
+    aiUseLevel: 'Guided planning',
+    reflectionPrompt:
+        'What idea did you keep from the AI, and what did you revise yourself before moving on?',
+    integrityPrompt:
+        'Explain why you accepted, revised, or rejected the AI output before the next workflow stage.',
+  );
 
   dynamic globalRubric;
   dynamic rubricasjson;
@@ -195,12 +218,28 @@ class _EssayGenerationState extends State<EssayGeneration> {
   }
 
   String getSelectedResponses() {
+    // Added: prepare a compact visual-material summary for the rubric prompt.
+    final visualSummary = _visualAssets.isEmpty
+        ? 'No instructional images attached.'
+        : _visualAssets
+            .map((asset) => '${asset.name} (${asset.purpose})')
+            .join(', ');
+
     return '''
       Selected Grade Level: $_selectedGradeLevel
       Selected Point Scale: $_selectedPointScale
+      Subject Template: $_selectedSubjectTemplate
+      Assignment Type: $_selectedAssignmentType
       Standard / Objective: ${_standardObjectiveController.text}
       Assignment Description: ${_assignmentDescriptionController.text}
       Additional Customization: ${_additionalCustomizationController.text}
+      Workflow Stage Focus: ${_workflowSupportState.currentStage}
+      AI Use Level: ${_workflowSupportState.aiUseLevel}
+      Micro Reflection Prompt: ${_workflowSupportState.reflectionPrompt}
+      Integrity Prompt: ${_workflowSupportState.integrityPrompt}
+      Visual Materials: $visualSummary
+      Security Constraint: Keep all processing and sensitive data inside university-controlled infrastructure.
+      Rubric Quality Goal: Ensure rubric descriptors are clean, consistent, classroom-usable, and export-ready.
     ''';
   }
 
@@ -235,8 +274,103 @@ class _EssayGenerationState extends State<EssayGeneration> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    const Text("Rubric Generator",
-                        style: TextStyle(fontSize: 24)),
+                    Text(
+                      "Rubric Generator",
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: AppThemeHelper.titleColor(context),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Added: reinforce local-only processing for rubric generation workflows.
+                    const SecurityComplianceBanner(
+                      label: 'Security baseline active',
+                    ),
+                    const SizedBox(height: 16),
+                    // Added: polish task workflow markers, micro-reflections, and AI-use scaffolding.
+                    WorkflowSupportPanel(
+                      state: _workflowSupportState,
+                      onChanged: (value) {
+                        setState(() {
+                          // Added: update the polished workflow support state.
+                          _workflowSupportState = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Added: support teacher-selected instructional visuals for richer classroom artifacts.
+                    VisualMaterialsPanel(
+                      assets: _visualAssets,
+                      onAssetsChanged: (value) {
+                        setState(() {
+                          // Added: update the selected visual materials.
+                          _visualAssets = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // Added: subject and assignment templates for cleaner rubric generation.
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedSubjectTemplate,
+                            decoration: const InputDecoration(
+                              labelText: 'Rubric Subject Template',
+                            ),
+                            items: const [
+                              'General',
+                              'English / Writing',
+                              'Computer Science',
+                              'History / Social Studies',
+                              'Science',
+                            ]
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                // Added: store the selected rubric subject template.
+                                _selectedSubjectTemplate = value ?? 'General';
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedAssignmentType,
+                            decoration: const InputDecoration(
+                              labelText: 'Assignment Type',
+                            ),
+                            items: const [
+                              'Essay',
+                              'Reflection',
+                              'Discussion Post',
+                              'Research Response',
+                              'Programming Explanation',
+                            ]
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                // Added: store the selected assignment type.
+                                _selectedAssignmentType = value ?? 'Essay';
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
 
                     // Grade Level Dropdown
@@ -283,17 +417,20 @@ class _EssayGenerationState extends State<EssayGeneration> {
                                                 "" &&
                                             _localLlmAvail) ||
                                         LocalStorageService.userHasLlmKey(llm)
-                                    ? Colors.black87
-                                    : Colors.grey,
+                                    ? Theme.of(context).colorScheme.onSurface
+                                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
                               ),
                             ),
                           );
                         }).toList()),
                     if (selectedLLM == LlmType.LOCAL) ...[
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         "The recommended model for Rubric Generation is a 7B or higher reasoning (Qwen) model.\nRunning a Large Language Model (LLM) locally typically requires substantial hardware resources. Using smaller models may produce inaccurate or misleading responses.\nFor best results, we recommend using the external LLM.\nPlease use the local LLM responsibly and independently verify any critical information.",
-                        style: TextStyle(fontSize: 13, color: Colors.black54),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppThemeHelper.mutedColor(context),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 16),
@@ -368,7 +505,9 @@ class _EssayGenerationState extends State<EssayGeneration> {
                   children: <Widget>[
                     Container(
                       height: 600,
-                      color: Colors.grey[200],
+                      decoration: AppThemeHelper.panelDecoration(context).copyWith(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.45),
+                      ),
                       child:
                           _isLoading // Make the container dependent on the isLoading var
                               ? Center(
@@ -381,7 +520,7 @@ class _EssayGenerationState extends State<EssayGeneration> {
                                         "Generating Rubric...", // Display this text when we start loading
                                         style: TextStyle(
                                             fontSize: 18,
-                                            color: Colors.black54),
+                                            color: AppThemeHelper.mutedColor(context)),
                                       ),
                                       if (selectedLLM == LlmType.LOCAL)
                                         TextButton(
@@ -505,10 +644,10 @@ class _EssayGenerationState extends State<EssayGeneration> {
                                     )
                                   : Center(
                                       child: Text(
-                                        "No Rubric Data Available",
+                                        "No Rubric Data Available Yet",
                                         style: TextStyle(
                                             fontSize: 18,
-                                            color: Colors.black54),
+                                            color: AppThemeHelper.mutedColor(context)),
                                       ),
                                     ),
                     ),
