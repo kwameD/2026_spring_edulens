@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:learninglens_app/theme/app_theme_helper.dart';
 
 class NavigationCard extends StatelessWidget {
   final String title;
@@ -16,12 +17,17 @@ class NavigationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Added: capture the active color scheme so icons and hover states follow the selected theme.
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
-      color: Colors.white,
+      // Added: use a theme-aware surface color so cards stay readable in dark mode.
+      color: AppThemeHelper.cardColor(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: Colors.grey.shade400,
+          // Added: use a theme-aware border instead of a hardcoded light grey line.
+          color: AppThemeHelper.borderColor(context),
           width: 1.5,
         ),
       ),
@@ -35,27 +41,26 @@ class NavigationCard extends StatelessWidget {
             horizontal: 12,
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, // left aligned
-            mainAxisSize: MainAxisSize.min, // shrink to fit content
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Top-left icon
-              Icon(icon, size: 28),
+              // Added: tint the icon with the selected theme color for a more vibrant dashboard.
+              Icon(icon, size: 28, color: colorScheme.primary),
               const SizedBox(height: 12),
-              // Title (bold)
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: AppThemeHelper.titleColor(context),
                 ),
               ),
               const SizedBox(height: 4),
-              // Body text
               Text(
                 description,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: Colors.black87,
+                  color: AppThemeHelper.bodyColor(context),
                 ),
               ),
             ],

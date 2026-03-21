@@ -112,11 +112,7 @@ class _MatchingGameState extends State<MatchingGame> {
 
     _completionReported = true;
 
-    final maxScore = leftItems.length * widget.settings.basePoints +
-        (widget.settings.roundTimeSeconds > 0
-            ? widget.settings.roundTimeSeconds * widget.settings.timeBonus
-            : 0);
-
+    final maxScore = leftItems.length * widget.settings.basePoints;
     widget.onComplete(
       GamePlayResult(
         score: score,
@@ -147,11 +143,6 @@ class _MatchingGameState extends State<MatchingGame> {
         'correct': correctAnswer,
         'status': isCorrect ? '✅ Correct' : '❌ Incorrect',
       });
-    }
-
-    if (widget.settings.roundTimeSeconds > 0 &&
-        !forceFinish) {
-      score += _timeRemaining * widget.settings.timeBonus;
     }
 
     setState(() {

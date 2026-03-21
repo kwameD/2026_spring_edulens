@@ -2,8 +2,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
+import 'package:learninglens_app/Api/lms/lms_interface.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
+import 'package:learninglens_app/Games/timed_quiz_game.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
+import 'package:learninglens_app/services/local_storage_service.dart';
 
 class ViewGamesList extends StatefulWidget {
   @override
@@ -118,6 +121,26 @@ class _GameListState extends State<ViewGamesList> {
   }
 
   Widget _buildGridLayout(BuildContext context, BoxConstraints constraints) {
+    final role = LocalStorageService.getUserRole();
+    final userId = LocalStorageService.getUserId();
+    
+    // Helper function to determine which game to show to the user
+    bool isGameVisible(List<int> assignedStudents) {  
+      // If the user is a teacher, show all games
+      if (role == UserRole.teacher) {
+        return true;
+      } else {
+        // Check the assignedStudents field of the game, show to current user if assigned
+        if (assignedStudents.any((student) => student.toString() == userId)){
+          return true;
+        } else if (assignedStudents.isEmpty) {
+          // Else if assigned students is empty, show to all users
+          return true;
+        }
+      }
+      return false;
+    }
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
         .collection('Games')
@@ -136,8 +159,14 @@ class _GameListState extends State<ViewGamesList> {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           return {
             'title': data['title'],
-            'description': 'Description that is relatively long and big and things',
+            'questions': data['questions'],
+            'description': data['description'] ?? 'No description provided.',
+            'basePointsPerSec': data['basePointsPerSec'] ?? 5,
+            'difficulty': data['difficulty'] ?? 'N/A',
+            'roundTime': data['roundTime'] ?? 20,
+            'transitionTime': data['transitionTime'] ?? 3,
             'icon': Icons.gamepad_outlined,
+            'visible': isGameVisible(List.from(data['assignedStudents'] ?? [])),
           };
         }).toList();
         
@@ -148,15 +177,35 @@ class _GameListState extends State<ViewGamesList> {
             runSpacing: 12,
             alignment: WrapAlignment.center,
             children: gameButtonData
+              .where((data) => data['visible'] == true)
               .map((data) => SizedBox(
                 width: 550,
                 height: 440,
-                child: NavigationCard(
+                child: 
+                  NavigationCard(
                   title: data['title'], 
                   description: data['description'], 
-                  icon: data['icon'], 
-                  // TODO: Replace this with function to start the game
-                  onPressed: () => print("TEST")))).toList(),
+                  icon: data['icon'],
+                  onPressed: () => Navigator.push(
+                    context, 
+                    MaterialPageRoute(
+                      builder: 
+                        (context) => TimedQuizGame(
+                          basePointsPerSec: data['basePointsPerSec'],
+                          difficulty: data['difficulty'],
+                          gameTitle: data['title'],
+                          gameDescription: data['description'],
+                          questions: List<Map<String, dynamic>>.from(
+                            data['questions'] ?? const []
+                          ),
+                          roundTime: data['roundTime'],
+                          transitionTime: data['transitionTime'],
+                        )
+                    )
+                  )
+                )
+              )
+            ).toList(),
           ),
         );
       },

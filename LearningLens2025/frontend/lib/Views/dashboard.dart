@@ -358,9 +358,12 @@ class TeacherDashboard extends StatelessWidget {
           'icon': Icons.smart_toy_outlined
         },
         {
-          'title': 'Games',
-          'description': 'Participate in games assigned to you.',
-          'onPressed': () => Navigator.pushNamed(context, '/gamification'),
+          'title': 'Games Feature Menu',
+          'description': 'Create games or view current games here.',
+          'onPressed': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => GamificationMenu()),
+          ),
           'icon': Icons.videogame_asset_outlined
         },
         {

@@ -152,9 +152,8 @@ class _QuizGameState extends State<QuizGame> {
 
       if (correct) {
         _streak++;
-        final timeBonus = _timedMode ? _timeRemaining * widget.settings.timeBonus : 0;
         final streakBonus = _streak > 1 ? (_streak - 1) * widget.settings.streakBonus : 0;
-        score += widget.settings.basePoints + timeBonus + streakBonus;
+        score += widget.settings.basePoints + streakBonus;
       } else {
         _streak = 0;
       }
@@ -192,7 +191,6 @@ class _QuizGameState extends State<QuizGame> {
       GamePlayResult(
         score: score,
         maxScore: totalQuestions * widget.settings.basePoints +
-            (_timedMode ? totalQuestions * widget.settings.roundTimeSeconds * widget.settings.timeBonus : 0) +
             (totalQuestions * widget.settings.streakBonus),
       ),
     );
