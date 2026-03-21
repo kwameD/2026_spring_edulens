@@ -155,6 +155,7 @@ class _GameListState extends State<ViewGamesList> {
             'title': data['title'],
             'questions': data['questions'],
             'gameType': gameType,
+            'llmType': data['llmType'] ?? 'ChatGPT',
             'description': data['description'] ?? 'No description provided.',
             'basePointsPerSec': data['basePointsPerSec'] ?? 5,
             'difficulty': data['difficulty'] ?? 'N/A',
@@ -197,7 +198,8 @@ class _GameListState extends State<ViewGamesList> {
                                         ),
                                         title: data['title'],
                                         description: data['description'],
-                                        llmType: 'ChatGPT',
+                                        llmType: data['llmType']?.toString() ??
+                                            'ChatGPT',
                                         previewMode: false,
                                         onComplete: (_) {},
                                       ),
