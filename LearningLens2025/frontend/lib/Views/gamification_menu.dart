@@ -135,7 +135,7 @@ class _GameMenuState extends State<GamificationMenu> {
               height: 140,
               child: NavigationCard(
                 title: 'Create a game', 
-                description: 'Create games for students to learn while having fun.', 
+                description: 'Create quiz, matching, flashcard, and AIRSS simulation activities.', 
                 icon: Icons.videogame_asset_outlined, 
                 onPressed: () => Navigator.push(
                   context,
@@ -143,19 +143,20 @@ class _GameMenuState extends State<GamificationMenu> {
                 ),
               )
             ),
-          SizedBox(
-            width: 350,
-            height: 140,
-            child: NavigationCard(
-              title: 'Games', 
-              description: 'View and play your current games.', 
-              icon: Icons.library_books_outlined,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ViewGamesList())
-              ),
-            )
-          ),
+          if (role == UserRole.teacher)
+            SizedBox(
+              width: 350,
+              height: 140,
+              child: NavigationCard(
+                title: 'Games', 
+                description: 'View and play your current games.', 
+                icon: Icons.library_books_outlined,
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ViewGamesList())
+                ),
+              )
+            ),
           SizedBox(
             width: 350,
             height: 140,

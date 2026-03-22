@@ -84,8 +84,10 @@ export const handler = async (event, context) => {
       score NUMERIC(5,2),
       raw_correct SMALLINT,
       max_score SMALLINT,
+      session_payload TEXT,
       game UUID
     );`;
+    await client`ALTER TABLE GAME_SCORES ADD COLUMN IF NOT EXISTS session_payload TEXT;`;
     }
     catch (error) {
       console.error("Failed to create database table: ", error);
@@ -107,7 +109,7 @@ export const handler = async (event, context) => {
 
   async function getGamesForStudent(client, studentId, lms) {
     try {
-      return await client`SELECT game_id, course_id, student_id, title, data, game_type, score, raw_correct, max_score, assigned_by, lms_service, assigned_date FROM GAMES INNER JOIN GAME_SCORES ON game = game_id WHERE
+      return await client`SELECT game_id, course_id, student_id, title, data, game_type, score, raw_correct, max_score, session_payload, assigned_by, lms_service, assigned_date FROM GAMES INNER JOIN GAME_SCORES ON game = game_id WHERE
       student_id = ${studentId}
       AND lms_service = ${lms};`;
     }
@@ -119,7 +121,7 @@ export const handler = async (event, context) => {
 
     async function getGamesForTeacher(client, assignedBy, lms) {
     try {
-      return await client`SELECT game_id, course_id, student_id, title, data, game_type, score, raw_correct, max_score, assigned_by, assigned_date FROM GAMES INNER JOIN GAME_SCORES ON game = game_id WHERE
+      return await client`SELECT game_id, course_id, student_id, title, data, game_type, score, raw_correct, max_score, session_payload, assigned_by, assigned_date FROM GAMES INNER JOIN GAME_SCORES ON game = game_id WHERE
       assigned_by = ${assignedBy}
       AND lms_service = ${lms};`;
     }
@@ -169,10 +171,12 @@ export const handler = async (event, context) => {
         score,
         raw_correct,
         max_score,
+        session_payload,
         game
       ) VALUES (
         gen_random_uuid(),
         ${log.studentId},
+        NULL,
         NULL,
         NULL,
         NULL,
@@ -213,7 +217,8 @@ export const handler = async (event, context) => {
       UPDATE GAME_SCORES
       SET score = ${normalizedScore},
           raw_correct = ${rawCorrect},
-          max_score = ${maxScore}
+          max_score = ${maxScore},
+          session_payload = ${log.sessionPayload ? JSON.stringify(log.sessionPayload) : null}
       WHERE game = ${log.gameId} AND student_id = ${log.studentId};`;
     }
     catch (error) {

@@ -94,16 +94,7 @@ resource "aws_iam_role_policy_attachment" "attach_ecs_managed" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Moodle service account username
-variable "moodle_username" {
-  type = string
-}
-
-# Moodle service account password
-variable "moodle_password"{
-  type = string
-  sensitive = true
-}
+# Variables defined in variables.tf
 
 # Run npm install before zipping
 resource "null_resource" "npm_install_code_eval" {
@@ -120,9 +111,9 @@ resource "null_resource" "npm_install_code_eval" {
 
 # lambda function for code evaluations
 data "archive_file" "code_eval" {
-  type = "zip"
-  source_dir = "../lambda/code_eval/"
-  excludes = ["../lambda/code_eval/code_eval.zip"]
+  type        = "zip"
+  source_dir  = "../lambda/code_eval/"
+  excludes    = ["../lambda/code_eval/code_eval.zip"]
   output_path = "../lambda/code_eval/code_eval.zip"
 
   depends_on = [null_resource.npm_install_code_eval]
@@ -134,34 +125,34 @@ resource "aws_iam_role_policy_attachment" "vpc_access" {
 }
 
 resource "aws_lambda_function" "code_eval_lambda" {
-  filename = data.archive_file.code_eval.output_path
-  function_name = "evaluate_code"
-  role = aws_iam_role.lambda_token.arn
-  handler = "index.handler"
+  filename         = data.archive_file.code_eval.output_path
+  function_name    = "evaluate_code"
+  role             = aws_iam_role.lambda_token.arn
+  handler          = "index.handler"
   source_code_hash = data.archive_file.code_eval.output_base64sha256
-  runtime = "nodejs20.x"
-  timeout = "10"
+  runtime          = "nodejs20.x"
+  timeout          = "10"
 
 
   environment {
     variables = {
-      ENVIRONMENT = "production"
-      LOG_LEVEL = "info"
-      AWS_DB_CLUSTER = format("%s.dsql.%s.on.aws", aws_dsql_cluster.edulense.identifier, data.aws_region.current.region)
-      MOODLE_USERNAME = var.moodle_username
-      MOODLE_PASSWORD = var.moodle_password
-      MOODLE_URL = "http://${aws_instance.moodle_instance.public_dns}"
-      ECS_TASK_NAME = aws_ecs_task_definition.eval_code_task.family
-      ECS_CLUSTER_ARN = aws_ecs_cluster.eval_code_cluster.arn
-      SUBNET_IDS      = join(",", data.aws_subnets.default.ids)
+      ENVIRONMENT        = "production"
+      LOG_LEVEL          = "info"
+      AWS_DB_CLUSTER     = format("%s.dsql.%s.on.aws", aws_dsql_cluster.edulense.identifier, data.aws_region.current.region)
+      MOODLE_USERNAME    = var.moodle_username
+      MOODLE_PASSWORD    = var.moodle_password
+      MOODLE_URL         = var.moodle_url
+      ECS_TASK_NAME      = aws_ecs_task_definition.eval_code_task.family
+      ECS_CLUSTER_ARN    = aws_ecs_cluster.eval_code_cluster.arn
+      SUBNET_IDS         = join(",", data.aws_subnets.default.ids)
       SECURITY_GROUP_IDS = data.aws_security_group.default.id
-      S3_BUCKET = aws_s3_bucket.edulense.bucket
+      S3_BUCKET          = aws_s3_bucket.edulense.bucket
     }
   }
 }
 
 resource "aws_lambda_function_url" "code_eval_url" {
-  function_name = aws_lambda_function.code_eval_lambda.function_name
+  function_name      = aws_lambda_function.code_eval_lambda.function_name
   authorization_type = "NONE"
   cors {
     allow_methods = ["GET", "POST", "DELETE"]
@@ -179,8 +170,8 @@ resource "aws_cloudwatch_log_group" "eval_code_logs" {
 resource "aws_ecs_task_definition" "eval_code_task" {
   family                   = "eval_code"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "1024"   # 1 vCPU
-  memory                   = "3072"   # 3 GB
+  cpu                      = "1024" # 1 vCPU
+  memory                   = "3072" # 3 GB
   network_mode             = "awsvpc"
   execution_role_arn       = aws_iam_role.code_evaluator.arn
   task_role_arn            = aws_iam_role.code_evaluator.arn
@@ -198,7 +189,7 @@ resource "aws_ecs_task_definition" "eval_code_task" {
       environment = [
         {
           name  = "CODE_S3_URI"
-          value = ""  # Fill this with the S3 URI at runtime
+          value = "" # Fill this with the S3 URI at runtime
         },
         {
           name  = "LAMBDA_NAME"
@@ -229,7 +220,7 @@ resource "aws_ecs_task_definition" "eval_code_task" {
     }
   ])
 
-  
+
 }
 
 resource "aws_ecs_cluster" "eval_code_cluster" {
@@ -270,7 +261,7 @@ data "aws_iam_policy_document" "lambda_ecs_permissions" {
 
   # Allow Lambda to pass the ECS task execution role
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["iam:PassRole"]
     resources = [
       aws_iam_role.code_evaluator.arn
@@ -278,8 +269,8 @@ data "aws_iam_policy_document" "lambda_ecs_permissions" {
   }
 
   statement {
-    effect = "Allow"
-    actions = ["ecs:DescribeTaskDefinition"]
+    effect    = "Allow"
+    actions   = ["ecs:DescribeTaskDefinition"]
     resources = ["*"]
   }
 }

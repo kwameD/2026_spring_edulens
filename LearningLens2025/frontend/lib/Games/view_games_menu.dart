@@ -1,9 +1,9 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Api/lms/lms_interface.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
+import 'package:learninglens_app/Games/airss_simulation.dart';
 import 'package:learninglens_app/Games/timed_quiz_game.dart';
 import 'package:learninglens_app/Views/nav_card.dart';
 import 'package:learninglens_app/services/local_storage_service.dart';
@@ -17,30 +17,24 @@ class _GameListState extends State<ViewGamesList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(
-        title: 'List of Generated Games', 
-        userprofileurl: LmsFactory.getLmsService().profileImage ?? '',
-      ),
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child:
-            LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth > 600) {
-                  return _buildDesktopLayout(context, constraints);
-                } else {
-                  return _buildMobileLayout(context, constraints);
-                }
+        appBar: CustomAppBar(
+          title: 'List of Generated Games',
+          userprofileurl: LmsFactory.getLmsService().profileImage ?? '',
+        ),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: LayoutBuilder(builder: (context, constraints) {
+              if (constraints.maxWidth > 600) {
+                return _buildDesktopLayout(context, constraints);
+              } else {
+                return _buildMobileLayout(context, constraints);
               }
-            )
-          )
-        ],
-      )
-    );
+            }))
+          ],
+        ));
   }
 
   Widget _buildDesktopLayout(BuildContext context, BoxConstraints constraints) {
@@ -123,15 +117,15 @@ class _GameListState extends State<ViewGamesList> {
   Widget _buildGridLayout(BuildContext context, BoxConstraints constraints) {
     final role = LocalStorageService.getUserRole();
     final userId = LocalStorageService.getUserId();
-    
+
     // Helper function to determine which game to show to the user
-    bool isGameVisible(List<int> assignedStudents) {  
+    bool isGameVisible(List<int> assignedStudents) {
       // If the user is a teacher, show all games
       if (role == UserRole.teacher) {
         return true;
       } else {
         // Check the assignedStudents field of the game, show to current user if assigned
-        if (assignedStudents.any((student) => student.toString() == userId)){
+        if (assignedStudents.any((student) => student.toString() == userId)) {
           return true;
         } else if (assignedStudents.isEmpty) {
           // Else if assigned students is empty, show to all users
@@ -142,9 +136,7 @@ class _GameListState extends State<ViewGamesList> {
     }
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-        .collection('Games')
-        .snapshots(),
+      stream: FirebaseFirestore.instance.collection('Games').snapshots(),
       builder: (context, snapshot) {
         // Retrieve the games from storage and display to UI
         if (snapshot.hasError) {
@@ -153,23 +145,29 @@ class _GameListState extends State<ViewGamesList> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return CircularProgressIndicator();
         }
-        
+
         // Parse the retrieved games into a List, create NavigationCards from list
-        List<Map<String, dynamic>> gameButtonData = snapshot.data!.docs.map((doc) {
+        List<Map<String, dynamic>> gameButtonData =
+            snapshot.data!.docs.map((doc) {
           Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          final gameType = data['gameType']?.toString() ?? 'Quiz Game';
           return {
             'title': data['title'],
             'questions': data['questions'],
+            'gameType': gameType,
+            'llmType': data['llmType'] ?? 'ChatGPT',
             'description': data['description'] ?? 'No description provided.',
             'basePointsPerSec': data['basePointsPerSec'] ?? 5,
             'difficulty': data['difficulty'] ?? 'N/A',
             'roundTime': data['roundTime'] ?? 20,
             'transitionTime': data['transitionTime'] ?? 3,
-            'icon': Icons.gamepad_outlined,
+            'icon': gameType == 'AIRSS Simulation'
+                ? Icons.record_voice_over_outlined
+                : Icons.gamepad_outlined,
             'visible': isGameVisible(List.from(data['assignedStudents'] ?? [])),
           };
         }).toList();
-        
+
         return ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 1200),
           child: Wrap(
@@ -177,35 +175,50 @@ class _GameListState extends State<ViewGamesList> {
             runSpacing: 12,
             alignment: WrapAlignment.center,
             children: gameButtonData
-              .where((data) => data['visible'] == true)
-              .map((data) => SizedBox(
-                width: 550,
-                height: 440,
-                child: 
-                  NavigationCard(
-                  title: data['title'], 
-                  description: data['description'], 
-                  icon: data['icon'],
-                  onPressed: () => Navigator.push(
-                    context, 
-                    MaterialPageRoute(
-                      builder: 
-                        (context) => TimedQuizGame(
-                          basePointsPerSec: data['basePointsPerSec'],
-                          difficulty: data['difficulty'],
-                          gameTitle: data['title'],
-                          gameDescription: data['description'],
-                          questions: List<Map<String, dynamic>>.from(
-                            data['questions'] ?? const []
-                          ),
-                          roundTime: data['roundTime'],
-                          transitionTime: data['transitionTime'],
-                        )
-                    )
-                  )
-                )
-              )
-            ).toList(),
+                .where((data) => data['visible'] == true)
+                .map((data) => SizedBox(
+                    width: 550,
+                    height: 440,
+                    child: NavigationCard(
+                        title: data['title'],
+                        description: data['description'],
+                        icon: data['icon'],
+                        onPressed: () =>
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (context) {
+                                if (data['gameType'] == 'AIRSS Simulation') {
+                                  return Scaffold(
+                                    appBar: AppBar(title: Text(data['title'])),
+                                    body: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: AirssSimulationGame(
+                                        scenarios:
+                                            List<Map<String, dynamic>>.from(
+                                          data['questions'] ?? const [],
+                                        ),
+                                        title: data['title'],
+                                        description: data['description'],
+                                        llmType: data['llmType']?.toString() ??
+                                            'ChatGPT',
+                                        previewMode: false,
+                                        onComplete: (_) {},
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return TimedQuizGame(
+                                  basePointsPerSec: data['basePointsPerSec'],
+                                  difficulty: data['difficulty'],
+                                  gameTitle: data['title'],
+                                  gameDescription: data['description'],
+                                  questions: List<Map<String, dynamic>>.from(
+                                      data['questions'] ?? const []),
+                                  roundTime: data['roundTime'],
+                                  transitionTime: data['transitionTime'],
+                                );
+                              },
+                            )))))
+                .toList(),
           ),
         );
       },
