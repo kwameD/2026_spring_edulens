@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "package:flutter_markdown/flutter_markdown.dart";
 import "package:learninglens_app/Api/lms/factory/lms_factory.dart";
 import "package:learninglens_app/Controller/custom_appbar.dart";
+import "package:learninglens_app/Views/iep_edit_page.dart";
 
 final db = FirebaseFirestore.instance;
 final iep = db.collection('IEP');
@@ -175,6 +176,51 @@ class _IepDetailState extends State<IepDetailPage> {
                       data: iep,
                       shrinkWrap: true,
                       physics: NeverScrollableScrollPhysics(),
+                    ),
+                  ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor:
+                            Colors.white, // Set the text color to black
+                        backgroundColor: Colors
+                            .green, // Set the button's background color (optional)
+                      ),
+                      onPressed: () {
+                        //Navigate to a edit page
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => IepEditPage(
+                              documentId: widget.documentId,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text("Edit"),
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor:
+                            Colors.white, // Set the text color to black
+                        backgroundColor: Colors
+                            .red, // Set the button's background color (optional)
+                      ),
+                      onPressed: () {
+                        // delete record
+                        FirebaseFirestore.instance
+                            .collection("IEP")
+                            .doc(widget.documentId)
+                            .delete();
+
+                        Navigator.pop(context);
+                      },
+                      child: const Text("Delete"),
                     ),
                   ),
                 ],

@@ -15,6 +15,7 @@ import "package:learninglens_app/Api/lms/factory/lms_factory.dart";
 import "package:learninglens_app/Controller/custom_appbar.dart";
 import 'package:learninglens_app/Controller/html_converter.dart';
 import 'package:learninglens_app/Views/iep_detail_page.dart';
+import 'package:learninglens_app/Views/iep_edit_page.dart';
 import 'package:learninglens_app/beans/course.dart';
 import 'package:learninglens_app/beans/override.dart';
 import 'package:learninglens_app/beans/participant.dart';
@@ -120,44 +121,6 @@ class _IepPageState extends State<IepPage> {
     }
   }
 
-  // Function to show details in a dialog
-  void _showDetailsDialog(BuildContext context, Override override) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Details"),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Student Name: ${override.fullname}"),
-                Text("Course Name: ${override.courseName}"),
-                Text(
-                    "Assignment: ${override.type}: ${override.assignmentName}"),
-                Text(""
-                    //"Extended Due Date: ${formatDate(override.endTime?.toString())}"
-                    ),
-                Text(""
-                    //"Cut Off Date: ${formatDate(override.cutoffTime?.toString())}"
-                    ),
-                Text("Attempts: ${override.attempts?.toString() ?? 'N/A'}"),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text("Close"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -241,7 +204,9 @@ class _IepPageState extends State<IepPage> {
                       DataColumn(label: Text('Grade Level')),
                       DataColumn(label: Text('Disability')),
                       DataColumn(label: Text('Due Date')),
-                      DataColumn(label: Text('Action')),
+                      DataColumn(label: Text('View')),
+                      DataColumn(label: Text('Edit')),
+                      DataColumn(label: Text('Delete')),
                     ],
                     rows: docs.map((doc) {
                       final data = doc.data() as Map<String, dynamic>;
@@ -255,11 +220,13 @@ class _IepPageState extends State<IepPage> {
                           DataCell(Text(data['dueDate'] ?? '')),
                           DataCell(
                             ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor:
+                                    Colors.white, // Set the text color to black
+                                backgroundColor: Colors
+                                    .black, // Set the button's background color (optional)
+                              ),
                               onPressed: () {
-                                final docId = doc.id;
-
-                                print("Viewing IEP: $docId");
-
                                 //Navigate to a detail page
                                 Navigator.push(
                                   context,
@@ -271,6 +238,52 @@ class _IepPageState extends State<IepPage> {
                                 );
                               },
                               child: const Text("View"),
+                            ),
+                          ),
+                          DataCell(
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor:
+                                    Colors.white, // Set the text color to black
+                                backgroundColor: Colors
+                                    .green, // Set the button's background color (optional)
+                              ),
+                              onPressed: () {
+                                //Navigate to a edit page
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => IepEditPage(
+                                      documentId: doc.id,
+                                    ),
+                                  ),
+                                );
+
+                                setState(() {});
+                              },
+                              child: const Text("Edit"),
+                            ),
+                          ),
+                          DataCell(
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor:
+                                    Colors.white, // Set the text color to black
+                                backgroundColor: Colors
+                                    .red, // Set the button's background color (optional)
+                              ),
+                              onPressed: () {
+                                final docId = doc.id;
+
+                                // delete record
+                                FirebaseFirestore.instance
+                                    .collection("IEP")
+                                    .doc(docId)
+                                    .delete();
+
+                                setState(() {});
+                              },
+                              child: const Text("Delete"),
                             ),
                           ),
                         ],
