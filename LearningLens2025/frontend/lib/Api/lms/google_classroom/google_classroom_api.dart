@@ -41,7 +41,7 @@ class GoogleClassroomApi {
       print("Response Body: ${response.body}");
       print('teacherFolderId: $teacherFolderId');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
 
         // Move the folder to where GC expects it to be.
@@ -201,16 +201,13 @@ class GoogleClassroomApi {
     int day = int.parse(dateParts[2]);
     int hours = int.parse(dateParts[3]);
     int minutes = int.parse(dateParts[4]);
-    String? topicId = await getTopicId(courseId, 'quiz') ?? '755868506953';
+    final topicId = await getTopicId(courseId, 'quiz');
 
     print('topic id is : $topicId');
 
-    //String? topicId ='755868506953';
-
-    final body = jsonEncode({
+    final requestBody = <String, dynamic>{
       "title": title,
       "description": description,
-      "topicId": topicId,
       "workType": "ASSIGNMENT",
       "state": "PUBLISHED",
       "dueDate": {"year": year, "month": month, "day": day},
@@ -220,7 +217,12 @@ class GoogleClassroomApi {
           "link": {"url": responderUri}
         } // Use the responderUri directly - THIS IS THE FIX!
       ]
-    });
+    };
+    if (topicId != null && topicId.isNotEmpty) {
+      requestBody["topicId"] = topicId;
+    }
+
+    final body = jsonEncode(requestBody);
 
     print('body for creating assignment is  : $body');
     try {
@@ -229,7 +231,7 @@ class GoogleClassroomApi {
       print("Response Status: ${response.statusCode}");
       print("Response Body: ${response.body}");
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         final assignmentId = data['id'];
         print('Assignment created successfully with ID: $assignmentId');
