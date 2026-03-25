@@ -42,6 +42,7 @@ class _TimedGameState extends State<TimedQuizGame> {
   
   GameState _state = GameState.start;
   int _totalPointsEarned = 0;
+  int _totalPossiblePoints = 0;
 
   int currentQuestionIndex = 0;
   int _secondsRemaining = 20;
@@ -144,7 +145,7 @@ class _TimedGameState extends State<TimedQuizGame> {
   /// whole game. The start button is also here to start the game.
   Widget _buildStartScreen(BuildContext context) {
     int numOfQuestions = widget.questions.length;
-    int totalPossPoints = numOfQuestions * (basePointsPerSec * answerTime); // 100 possible points per quesiton
+    _totalPossiblePoints = numOfQuestions * (basePointsPerSec * answerTime); // 100 possible points per quesiton
     
     return SingleChildScrollView(
       child: Container(
@@ -180,7 +181,7 @@ class _TimedGameState extends State<TimedQuizGame> {
               style: TextStyle(fontSize: 18),
             ),
             Text(
-              'Total Possible Points: $totalPossPoints',
+              'Total Possible Points: $_totalPossiblePoints',
               style: TextStyle(fontSize: 18),
             ),
             Text(
@@ -310,6 +311,23 @@ class _TimedGameState extends State<TimedQuizGame> {
     final lmsService = LmsFactory.getLmsService();
     String customId = "${lmsService.fullName}-${widget.gameTitle}";
 
+    // Helper function to return a finish message based on the user's score
+    String? getFinishMessage() {
+      double scorePrecent = (_totalPointsEarned / _totalPossiblePoints) * 100;
+      print("Score is: $scorePrecent");
+      if (scorePrecent >= 90) {
+        return "Amazing Job!";
+      } else if (scorePrecent >= 75) {
+        return "Great Job!";
+      } else if (scorePrecent >= 60) {
+        return "There's Room for Improvement!";
+      } else if (scorePrecent >= 50) {
+        return "Better Luck Next Time!";
+      } else {
+        return "Needs Improvement.";
+      }
+    }
+
     // Only upload score if it is not 0
     if (_totalPointsEarned > 0 ) {
       leaderboardCollection.doc(customId).set({
@@ -332,6 +350,10 @@ class _TimedGameState extends State<TimedQuizGame> {
             Text(
               "Quiz Completed!",
               style: TextStyle(fontSize: 30, color: Colors.green),
+            ),
+            Text(
+              getFinishMessage() ?? "",
+              style: TextStyle(fontSize: 20),
             ),
             SizedBox(height: 40),
             Text(
