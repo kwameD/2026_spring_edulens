@@ -1,17 +1,7 @@
 [
   {
-    "student_name": "Alice Johnson",
+    "student_name": "John Smith",
     "game_name": "Math Blaster",
-    "score": 72
-  },
-  {
-    "student_name": "Bob Smith",
-    "game_name": "Word Search",
-    "score": 82
-  },
-  {
-    "student_name": "Charlie Davis",
-    "game_name": "Math Blaster",
-    "score": 88
+    "score": 1
   }
 ]
