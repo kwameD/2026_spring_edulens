@@ -770,32 +770,46 @@ Rules:
   }
 
   List<String> _strengths() {
-    final strengths = <String>[];
-    if (_empathy >= _technicalAccuracy && _empathy >= _deEscalation) {
-      strengths.add('Empathy stayed visible under pressure.');
+    final metrics = _skillMetrics();
+    final positiveSignals = metrics.where((entry) => entry.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    if (positiveSignals.isEmpty) {
+      return [
+        'The session did not generate enough positive scoring evidence to credit a clear soft-skill strength yet.'
+      ];
     }
-    if (_technicalAccuracy >= _empathy && _technicalAccuracy >= _deEscalation) {
-      strengths.add('Technical explanations stayed concrete and credible.');
-    }
-    if (_deEscalation >= _empathy && _deEscalation >= _technicalAccuracy) {
-      strengths.add(
-          'Stakeholder pressure was contained without obvious overpromising.');
-    }
-    return strengths.isEmpty
-        ? ['Session completed with balanced but limited evidence.']
-        : strengths;
+
+    return positiveSignals.take(2).map((entry) {
+      switch (entry.key) {
+        case 'Empathy':
+          return 'Empathy stayed visible under pressure.';
+        case 'Technical Accuracy':
+          return 'Technical explanations stayed concrete and credible.';
+        case 'De-escalation':
+          return 'Stakeholder pressure was contained without obvious overpromising.';
+        default:
+          return '${entry.key} showed measurable progress during the session.';
+      }
+    }).toList();
   }
 
   List<String> _weaknesses() {
-    final ordered = {
-      'Empathy': _empathy,
-      'Technical Accuracy': _technicalAccuracy,
-      'De-escalation': _deEscalation,
-    }.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-    return ordered.take(2).map((entry) {
+    final ordered = _skillMetrics()..sort((a, b) => a.value.compareTo(b.value));
+    final weakSignals = ordered.where((entry) => entry.value <= 0).toList();
+    final summaryPool = weakSignals.isNotEmpty ? weakSignals : ordered.take(2).toList();
+
+    return summaryPool.take(2).map((entry) {
       return '${entry.key} needs a stronger repeatable structure next attempt.';
     }).toList();
+  }
+
+  List<MapEntry<String, int>> _skillMetrics() {
+    return [
+      MapEntry('Empathy', _empathy),
+      MapEntry('Technical Accuracy', _technicalAccuracy),
+      MapEntry('De-escalation', _deEscalation),
+    ];
   }
 
   String _reflectionQuality(String reflection) {
