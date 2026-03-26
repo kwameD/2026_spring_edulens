@@ -16,16 +16,33 @@ class PermTokens {
 class ChatTurn {
   final String role; // 'user' | 'assistant' | 'system'
   final String? content;
+  final DateTime? timestamp;
+  final int? roundNumber;
 
-  const ChatTurn({required this.role, required this.content});
+  const ChatTurn(
+      {required this.role,
+      required this.content,
+      this.timestamp,
+      this.roundNumber});
 
-  ChatTurn copyWith({String? role, String? content}) =>
-      ChatTurn(role: role ?? this.role, content: content ?? this.content);
+  ChatTurn copyWith(
+          {String? role,
+          String? content,
+          DateTime? timestamp,
+          int? roundNumber}) =>
+      ChatTurn(
+        role: role ?? this.role,
+        content: content ?? this.content,
+        timestamp: timestamp ?? this.timestamp,
+        roundNumber: roundNumber ?? this.roundNumber,
+      );
 
   // JSON should use Map<String, dynamic>
   Map<String, dynamic> toJson() => {
         'role': role,
         'content': content,
+        'timestamp': timestamp?.toUtc().toIso8601String(),
+        'roundNumber': roundNumber,
       };
 
   // Defensive factory: tolerate missing/typed values
@@ -38,7 +55,18 @@ class ChatTurn {
     // ensure content is a String
     final content = val is String ? val : (val == null ? '' : val.toString());
 
-    return ChatTurn(role: role, content: content);
+    final timestamp = json['timestamp'] is String
+        ? DateTime.tryParse(json['timestamp'])
+        : null;
+
+    final roundNumber = json['roundNumber'] is int ? json['roundNumber'] : null;
+
+    return ChatTurn(
+      role: role,
+      content: content,
+      timestamp: timestamp,
+      roundNumber: roundNumber,
+    );
   }
 
   bool get isUser => role == 'user';
