@@ -319,8 +319,7 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
     final transcript = (bundle['transcript'] as List<dynamic>? ?? const []);
     final teacherSummary =
         bundle['teacher_summary'] as Map<String, dynamic>? ?? {};
-    final evidenceJson =
-        const JsonEncoder.withIndent('  ').convert(teacherSummary);
+    final evidenceJson = const JsonEncoder.withIndent('  ').convert(bundle);
 
     return SizedBox(
       width: 760,
@@ -356,7 +355,7 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
             TextField(
               controller: _reflectionController,
               maxLines: 4,
-              enabled: !_reflectionUnlocked,
+              enabled: true,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 hintText: 'Write at least 3 sentences.',
@@ -364,9 +363,21 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
             ),
             const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: _reflectionUnlocked ? null : _submitReflection,
-              child: const Text('Submit Reflection'),
+              onPressed: _submitReflection,
+              child: Text(
+                _reflectionUnlocked ? 'Update Reflection' : 'Submit Reflection',
+              ),
             ),
+            if (_reflectionUnlocked) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Reflection saved. You can revise it and submit again if needed.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
             Text(
               _reflectionUnlocked

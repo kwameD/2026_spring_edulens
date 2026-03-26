@@ -32,6 +32,10 @@ class QuizMoodleState extends State<QuizMoodle> {
 
   LmsType? lmsType;
   bool isLoading = false; // Added to track loading state
+  final TextEditingController _newCourseNameController =
+      TextEditingController();
+  final TextEditingController _newCourseSectionController =
+      TextEditingController();
 
   @override
   void initState() {
@@ -41,6 +45,17 @@ class QuizMoodleState extends State<QuizMoodle> {
     quizasxml = widget.quiz.toXmlString();
     fetchCourses();
     _getLmsType(); // Fetch LMS type on init
+  }
+
+  @override
+  void dispose() {
+    quizNameController.dispose();
+    gradeController.dispose();
+    quizQuestionsController.dispose();
+    quizSectionController.dispose();
+    _newCourseNameController.dispose();
+    _newCourseSectionController.dispose();
+    super.dispose();
   }
 
   // Fetch LMS type from local storage
@@ -101,6 +116,58 @@ class QuizMoodleState extends State<QuizMoodle> {
       ],
       isExpanded: true,
     );
+  }
+
+  Future<void> _createGoogleCourse() async {
+    final name = _newCourseNameController.text.trim();
+    final section = _newCourseSectionController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a course name.')),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final course =
+          await GoogleLmsService().createCourse(name, sectionName: section);
+      if (!mounted) return;
+      if (course == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to create course in Google Classroom.'),
+          ),
+        );
+        return;
+      }
+
+      await fetchCourses();
+      if (!mounted) return;
+      setState(() {
+        selectedCourse = course.id.toString();
+        _newCourseNameController.clear();
+        _newCourseSectionController.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Created course "${course.fullName}".')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Course creation failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
   }
 
   // Due date selection
@@ -192,6 +259,41 @@ class QuizMoodleState extends State<QuizMoodle> {
             SizedBox(height: 30),
             sectionTitle(title: 'Course Name'),
             _buildCourseDropdown(),
+            if (lmsType == LmsType.GOOGLE) ...[
+              SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _newCourseNameController,
+                      decoration: InputDecoration(
+                        labelText: 'New course name',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _newCourseSectionController,
+                      decoration: InputDecoration(
+                        labelText: 'Section (optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: isLoading ? null : _createGoogleCourse,
+                  icon: Icon(Icons.add_circle_outline),
+                  label: Text('Create Google Course'),
+                ),
+              ),
+            ],
             SizedBox(height: 15),
             sectionTitle(title: 'Quiz Name'),
             SizedBox(height: 15),

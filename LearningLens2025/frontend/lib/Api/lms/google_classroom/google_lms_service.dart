@@ -294,7 +294,7 @@ class GoogleLmsService extends LmsInterface {
       courses =
           decodedJson.map((i) => Course.empty().fromGoogleJson(i)).toList();
     } else if (decodedJson is Map<String, dynamic>) {
-      final courseList = decodedJson['courses'] as List<dynamic>;
+      final courseList = (decodedJson['courses'] as List<dynamic>?) ?? const [];
       courses =
           courseList.map((i) => Course.empty().fromGoogleJson(i)).toList();
     } else {
@@ -335,7 +335,27 @@ class GoogleLmsService extends LmsInterface {
       // print('Essays for course ${course.id}: ${course.essays}');
     }
 
+    this.courses = courses;
     return courses;
+  }
+
+  Future<Course?> createCourse(String courseName, {String sectionName = ''}) async {
+    if (_userToken == null) {
+      throw StateError('User not logged in to Google Classroom');
+    }
+
+    final created = await _classroomApi.createCourse(courseName, sectionName);
+    if (created == null) {
+      return null;
+    }
+
+    final course = Course.empty().fromGoogleJson(created);
+    final existingCourses = courses ?? <Course>[];
+    courses = [
+      ...existingCourses.where((c) => c.id != course.id),
+      course,
+    ]..sort((a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
+    return course;
   }
 
   @override
@@ -1154,8 +1174,8 @@ class GoogleLmsService extends LmsInterface {
       Map<String, dynamic>? formResponse =
           await _classroomApi.createForm(teacherFolderId, quizName);
       if (formResponse == null) {
-        print('Error: Failed to create Google Form.');
-        return false;
+        throw Exception(
+            'Failed to create Google Form. Check Google Forms permissions and classroom ownership.');
       }
 
       final String formId = formResponse['formId'];
@@ -1231,8 +1251,8 @@ class GoogleLmsService extends LmsInterface {
       Map<String, dynamic>? batchResponse =
           await _classroomApi.batchUpdateForm(formId, requests);
       if (batchResponse == null) {
-        print('Error: Failed to update Google Form.');
-        return false;
+        throw Exception(
+            'Failed to populate Google Form questions from the generated quiz.');
       }
 
       String? assignmentId = await _classroomApi.createAssignment(
@@ -1244,8 +1264,8 @@ class GoogleLmsService extends LmsInterface {
       );
 
       if (assignmentId == null) {
-        print('Error: Failed to create Classroom assignment.');
-        return false;
+        throw Exception(
+            'Failed to create the Google Classroom assignment that attaches the quiz form.');
       }
 
       print(
@@ -1253,7 +1273,7 @@ class GoogleLmsService extends LmsInterface {
       return true;
     } catch (e) {
       print('Error during quiz creation and assignment: $e');
-      return false;
+      throw Exception('Google quiz creation failed: $e');
     }
   }
 
