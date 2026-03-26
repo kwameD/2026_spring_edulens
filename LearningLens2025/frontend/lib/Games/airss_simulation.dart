@@ -57,6 +57,7 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
   bool _reflectionUnlocked = false;
   bool _submitting = false;
   bool _resultUploaded = false;
+  bool _awaitingReply = false;
   String? _error;
   Map<String, dynamic>? _evidenceBundle;
   final List<_AirssTurn> _turns = [];
@@ -214,76 +215,99 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
           const SizedBox(height: 16),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFF7F4EF),
+                border: Border.all(color: const Color(0xFFD7D0C4)),
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: ListView.builder(
+              child: ListView.separated(
                 controller: _scrollController,
-                itemCount: _turns.length,
+                itemCount: _turns.length + (_awaitingReply ? 1 : 0),
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
+                  if (_awaitingReply && index == _turns.length) {
+                    return _buildTypingIndicator();
+                  }
                   final turn = _turns[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          turn.label,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(turn.content),
-                      ],
-                    ),
-                  );
+                  return _buildMessageBubble(turn);
                 },
               ),
             ),
           ),
           const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '[STAKEHOLDER DIALOGUE]',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFD9DDE3)),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _responseController,
-            maxLines: 4,
-            enabled: !_submitting,
-            decoration: const InputDecoration(
-              hintText:
-                  'Enter your response. Use "End Session" to force completion.',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              ElevatedButton(
-                onPressed: _submitting ? null : _submitResponse,
-                child: _submitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Send Response'),
-              ),
-              if (_error != null) ...[
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Message ${scenario['persona'] ?? 'stakeholder'}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _responseController,
+                  minLines: 1,
+                  maxLines: 4,
+                  enabled: !_submitting,
+                  decoration: const InputDecoration(
+                    hintText:
+                        'Type your reply. Use "End Session" only if you want to stop early.',
+                    border: InputBorder.none,
+                    isCollapsed: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _submitting ? null : _submitResponse,
+                      icon: _submitting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send_rounded),
+                      label: Text(_submitting ? 'Sending...' : 'Send'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'The session runs for 6 of your replies unless you explicitly end it.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
                     _error!,
                     style: const TextStyle(color: Colors.redAccent),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),
@@ -312,8 +336,11 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
             ...transcript.map((entry) {
               final item = Map<String, dynamic>.from(entry as Map);
               return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Text('${item['label']}: ${item['content']}'),
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildMessageBubble(
+                  _AirssTurn.fromTranscript(item),
+                  compact: true,
+                ),
               );
             }),
             const SizedBox(height: 20),
@@ -390,6 +417,101 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
     );
   }
 
+  Widget _buildMessageBubble(_AirssTurn turn, {bool compact = false}) {
+    final isUser = turn.isUser;
+    final bubbleColor =
+        isUser ? const Color(0xFF1F4A8A) : const Color(0xFFFFFFFF);
+    final textColor = isUser ? Colors.white : const Color(0xFF1F2937);
+    final crossAxis =
+        isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
+    final sender = isUser ? 'You' : 'Stakeholder';
+    final timestamp = DateFormat('h:mm a').format(turn.createdAt);
+
+    return Align(
+      alignment: alignment,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: compact ? 620 : 560),
+        child: Column(
+          crossAxisAlignment: crossAxis,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text(
+                '$sender • $timestamp',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: bubbleColor,
+                borderRadius: BorderRadius.circular(18),
+                border:
+                    isUser ? null : Border.all(color: const Color(0xFFD7DEEA)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: SelectableText(
+                turn.content,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypingIndicator() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 220),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text(
+                'Stakeholder',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFD7DEEA)),
+              ),
+              child: const Text('Typing...'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _startSession() async {
     final scenario = widget.scenarios[_selectedScenarioIndex];
     final openingLine = scenario['openingLine']?.toString().trim();
@@ -398,10 +520,22 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
         : 'We are starting now. I need answers, not generic reassurance. What is your plan?';
 
     setState(() {
+      _turns.clear();
+      _responseController.clear();
+      _reflectionController.clear();
       _sessionStarted = true;
+      _sessionFinished = false;
+      _reflectionUnlocked = false;
+      _resultUploaded = false;
+      _awaitingReply = false;
       _currentRound = 1;
+      _empathy = 0;
+      _technicalAccuracy = 0;
+      _deEscalation = 0;
+      _optimalStreak = 0;
+      _evidenceBundle = null;
       _turns.add(_AirssTurn(
-        label: '[STAKEHOLDER DIALOGUE]',
+        isUser: false,
         content: stakeholderIntro,
       ));
       _error = null;
@@ -415,14 +549,15 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
 
     setState(() {
       _submitting = true;
+      _awaitingReply = true;
       _error = null;
-      _turns.add(_AirssTurn(label: '[YOUR RESPONSE]', content: response));
+      _turns.add(_AirssTurn(isUser: true, content: response));
     });
     _responseController.clear();
     _scrollToBottom();
 
     try {
-      if (response.toLowerCase() == 'end session') {
+      if (_isForcedSessionEnd(response)) {
         _finishSession();
         return;
       }
@@ -439,22 +574,26 @@ class _AirssSimulationGameState extends State<AirssSimulationGame> {
       }
 
       setState(() {
+        _awaitingReply = false;
         _turns.add(_AirssTurn(
-          label: '[STAKEHOLDER DIALOGUE]',
+          isUser: false,
           content: aiReply['stakeholderDialogue']?.toString() ??
               'Your answer did not resolve the concern. Try again with a tighter plan.',
         ));
-        _currentRound = (_currentRound + 1).clamp(1, _maxRounds);
+        _currentRound = _nextRoundNumber();
       });
       _scrollToBottom();
 
-      if (aiReply['sessionComplete'] == true ||
-          _turns.where((t) => t.label == '[YOUR RESPONSE]').length >=
-              _maxRounds) {
+      final responseCount = _responseCount();
+      final reachedFinalRound = responseCount >= _maxRounds;
+      final modelRequestedStop = aiReply['sessionComplete'] == true;
+      if (reachedFinalRound ||
+          (modelRequestedStop && (_currentRound >= _maxRounds))) {
         _finishSession();
       }
     } catch (error) {
       setState(() {
+        _awaitingReply = false;
         _error = 'AIRSS simulation failed: $error';
       });
     } finally {
@@ -513,11 +652,11 @@ Rules:
 - The stakeholder dialogue must begin immediately with the pressure point.
 - Do not reveal scoring logic.
 - If the response explicitly uses STAR framing, active listening, ownership language, or a concrete recovery plan, reward it.
-- Set "sessionComplete" to true at the final round or if the student clearly ends the session.
+- Set "sessionComplete" to false unless the current round is $_maxRounds or the student clearly ends the session.
 ''';
 
     final raw = await llm.chat(prompt: prompt, temperature: 0.4);
-    return _extractJsonObject(raw);
+    return _normalizeAiReply(raw);
   }
 
   Future<void> _submitReflection() async {
@@ -549,9 +688,12 @@ Rules:
   }
 
   void _finishSession() {
+    if (_sessionFinished) return;
     setState(() {
+      _awaitingReply = false;
       _sessionFinished = true;
       _evidenceBundle = _buildEvidenceBundle(reflection: '');
+      _error = null;
     });
   }
 
@@ -597,6 +739,22 @@ Rules:
         : 1.0;
     final normalized = ((basePoints * streakMultiplier) / 90) * 100;
     return normalized.round().clamp(0, 100);
+  }
+
+  int _responseCount() {
+    return _turns.where((turn) => turn.isUser).length;
+  }
+
+  int _nextRoundNumber() {
+    final nextRound = _responseCount() + 1;
+    return nextRound.clamp(1, _maxRounds);
+  }
+
+  bool _isForcedSessionEnd(String response) {
+    final normalized = response.trim().toLowerCase();
+    return normalized == 'end session' ||
+        normalized == 'end' ||
+        normalized == 'stop session';
   }
 
   (int, int, int) _readDeltas(dynamic raw) {
@@ -698,6 +856,46 @@ Rules:
     throw const FormatException('Could not isolate a complete JSON object.');
   }
 
+  Map<String, dynamic> _normalizeAiReply(String raw) {
+    try {
+      final decoded = _extractJsonObject(raw);
+      final dialogue = decoded['stakeholderDialogue']?.toString().trim();
+      return {
+        'stakeholderDialogue': dialogue?.isNotEmpty == true
+            ? dialogue
+            : _fallbackStakeholderReply(),
+        'scoreDeltas': decoded['scoreDeltas'],
+        'optimal': decoded['optimal'] == true,
+        'multiplierKeyword': decoded['multiplierKeyword']?.toString() ?? 'none',
+        'sessionComplete': decoded['sessionComplete'] == true,
+      };
+    } catch (_) {
+      final fallback = _stripMarkdownFences(raw).trim();
+      return {
+        'stakeholderDialogue':
+            fallback.isNotEmpty ? fallback : _fallbackStakeholderReply(),
+        'scoreDeltas': const {
+          'empathy': 0,
+          'technicalAccuracy': 0,
+          'deEscalation': 0,
+        },
+        'optimal': false,
+        'multiplierKeyword': 'none',
+        'sessionComplete': false,
+      };
+    }
+  }
+
+  String _stripMarkdownFences(String raw) {
+    return raw
+        .replaceAll(RegExp(r'```json', multiLine: true), '')
+        .replaceAll(RegExp(r'```', multiLine: true), '');
+  }
+
+  String _fallbackStakeholderReply() {
+    return 'I still need a concrete next step, timeline, and owner. What happens next?';
+  }
+
   LLM _buildLlm(String value) {
     final normalized = value.toLowerCase();
     if (normalized.contains('deep') &&
@@ -745,11 +943,23 @@ Rules:
 }
 
 class _AirssTurn {
-  final String label;
+  final bool isUser;
   final String content;
+  final DateTime createdAt;
 
-  const _AirssTurn({
-    required this.label,
+  _AirssTurn({
+    required this.isUser,
     required this.content,
-  });
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  String get label => isUser ? '[YOUR RESPONSE]' : '[STAKEHOLDER DIALOGUE]';
+
+  factory _AirssTurn.fromTranscript(Map<String, dynamic> item) {
+    final label = item['label']?.toString() ?? '';
+    return _AirssTurn(
+      isUser: label == '[YOUR RESPONSE]',
+      content: item['content']?.toString() ?? '',
+    );
+  }
 }
