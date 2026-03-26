@@ -152,10 +152,12 @@ class MoodleLmsService implements LmsInterface {
     gradeLevel = userData['gradeLevel'];
     disability = userData['disability'];
 
-    final userId = userData['userid'];
-    if (userId != null) {
-      LocalStorageService.saveUserId(userId.toString());
+    final siteUserId = userData['userid'];
+    if (siteUserId != null) {
+      userId = int.tryParse(siteUserId.toString());
+      LocalStorageService.saveUserId(siteUserId.toString());
     } else {
+      userId = null;
       LocalStorageService.clearUserId();
       print('?? Moodle site info did not include userId');
     }
@@ -182,7 +184,13 @@ class MoodleLmsService implements LmsInterface {
 
   @override
   Future<UserRole> getUserRole() async {
-    for (var course in courses!) {
+    final currentCourses = courses ?? const <Course>[];
+    if (currentCourses.isEmpty) {
+      role = UserRole.student;
+      return role!;
+    }
+
+    for (var course in currentCourses) {
       final rolesResponse =
           await ApiService().httpPost(Uri.parse(apiURL + serverUrl), body: {
         'wstoken': _userToken,
@@ -197,11 +205,21 @@ class MoodleLmsService implements LmsInterface {
 
       // If the user has roleid == 3 or 4, they are teacher-like roles
       final users = jsonDecode(rolesResponse.body) as List<dynamic>;
-      final currUser = users.firstWhere(
-        (obj) => obj['username'].toString() == userName,
-      );
+      Map<String, dynamic>? currUser;
+      for (final rawUser in users) {
+        if (rawUser is! Map) continue;
+        final candidate = Map<String, dynamic>.from(rawUser);
+        if (_matchesCurrentUser(candidate)) {
+          currUser = candidate;
+          break;
+        }
+      }
 
-      for (var currRole in currUser['roles']) {
+      if (currUser == null) {
+        continue;
+      }
+
+      for (final currRole in (currUser['roles'] as List? ?? const [])) {
         if (currRole['roleid'] == 3 || currRole['roleid'] == 4) {
           role = UserRole.teacher;
           return role!;
@@ -233,9 +251,11 @@ class MoodleLmsService implements LmsInterface {
 
       // If the user has roleid == 3 or 4, they are teacher-like roles
       final users = jsonDecode(rolesResponse.body) as List<dynamic>;
-      for (var user in users) {
-        if (user['username'].toString() == userName) {
-          for (var role in user['roles']) {
+      for (final rawUser in users) {
+        if (rawUser is! Map) continue;
+        final user = Map<String, dynamic>.from(rawUser);
+        if (_matchesCurrentUser(user)) {
+          for (final role in (user['roles'] as List? ?? const [])) {
             print(role);
             if (role['roleid'] == 3 || role['roleid'] == 4) {
               return true;
@@ -244,6 +264,22 @@ class MoodleLmsService implements LmsInterface {
         }
       }
     }
+    return false;
+  }
+
+  bool _matchesCurrentUser(Map<String, dynamic> candidate) {
+    final candidateUsername = candidate['username']?.toString().trim();
+    if (candidateUsername != null &&
+        candidateUsername.isNotEmpty &&
+        candidateUsername == userName) {
+      return true;
+    }
+
+    final candidateId = int.tryParse(candidate['id']?.toString() ?? '');
+    if (candidateId != null && userId != null && candidateId == userId) {
+      return true;
+    }
+
     return false;
   }
 
