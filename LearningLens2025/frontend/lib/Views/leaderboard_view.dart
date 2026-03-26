@@ -67,59 +67,62 @@ class _LeaderboardTableState extends State<LeaderboardTable> {
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SizedBox.expand(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [StreamBuilder<QuerySnapshot>(
-            // Pull data from Firestore DB leaderboard collection to populate table
-            stream: FirebaseFirestore.instance
-              .collection('leaderboard')
-              .orderBy('score', descending: true)
-              .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Text('Error loading leaderboard: ${snapshot.error}');
-              }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return CircularProgressIndicator();
-              }
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [StreamBuilder<QuerySnapshot>(
+              // Pull data from Firestore DB leaderboard collection to populate table
+              stream: FirebaseFirestore.instance
+                .collection('leaderboard')
+                .orderBy('score', descending: true)
+                .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Text('Error loading leaderboard: ${snapshot.error}');
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircularProgressIndicator();
+                }
 
-              List<DataRow> rows = snapshot.data!.docs.map((doc) {
-                Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-                return DataRow(cells: [
-                  DataCell(Text(data['student_name'] ?? 'N/A')),
-                  DataCell(Text(data['game_name'] ?? 'N/A')),
-                  DataCell(Text(data['score'].toString())),
-                ]);
-              }).toList();
+                List<DataRow> rows = snapshot.data!.docs.map((doc) {
+                  Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                  return DataRow(cells: [
+                    DataCell(Text(data['student_name'] ?? 'N/A')),
+                    DataCell(Text(data['game_name'] ?? 'N/A')),
+                    DataCell(Text(data['score'].toString())),
+                  ]);
+                }).toList();
 
-              // Return the table with the gathered data, sorted by descending score
-              return SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.leaderboard_outlined,
-                      size: 120,
-                    ),
-                    Container(
-                      margin: const EdgeInsets.all(10),
-                      child: DataTable(
-                        border: TableBorder.all(color: Colors.black, width: 1.0),
-                        columns: const [
-                          DataColumn(label: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold),)),
-                          DataColumn(label: Text('Game Name', style: TextStyle(fontWeight: FontWeight.bold),)),
-                          DataColumn(label: Text('Score', style: TextStyle(fontWeight: FontWeight.bold),)),
-                        ],
-                        rows: rows,
+                // Return the table with the gathered data, sorted by descending score
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.leaderboard_outlined,
+                        size: 120,
+                      ),
+                      Container(
+                        margin: const EdgeInsets.all(10),
+                        child: DataTable(
+                          border: TableBorder.all(color: Colors.black, width: 1.0),
+                          columns: const [
+                            DataColumn(label: Text('Student Name', style: TextStyle(fontWeight: FontWeight.bold),)),
+                            DataColumn(label: Text('Game Name', style: TextStyle(fontWeight: FontWeight.bold),)),
+                            DataColumn(label: Text('Score', style: TextStyle(fontWeight: FontWeight.bold),)),
+                          ],
+                          rows: rows,
+                        )
                       )
-                    )
-                  ]
-                ),
-              );
-            },
-          )]
-       )
+                    ]
+                  ),
+                );
+              },
+            )]
+        )
+        ),
+
       )
     );
   }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:learninglens_app/Api/lms/factory/lms_factory.dart';
 import 'package:learninglens_app/Controller/custom_appbar.dart';
 import 'package:learninglens_app/Games/view_games_menu.dart';
+import 'package:learninglens_app/theme/app_theme_helper.dart';
 
 class TimedQuizGame extends StatefulWidget {
   final int basePointsPerSec;
@@ -41,6 +42,7 @@ class _TimedGameState extends State<TimedQuizGame> {
   
   GameState _state = GameState.start;
   int _totalPointsEarned = 0;
+  int _totalPossiblePoints = 0;
 
   int currentQuestionIndex = 0;
   int _secondsRemaining = 20;
@@ -143,44 +145,60 @@ class _TimedGameState extends State<TimedQuizGame> {
   /// whole game. The start button is also here to start the game.
   Widget _buildStartScreen(BuildContext context) {
     int numOfQuestions = widget.questions.length;
-    int totalPossPoints = numOfQuestions * (basePointsPerSec * answerTime); // 100 possible points per quesiton
+    _totalPossiblePoints = numOfQuestions * (basePointsPerSec * answerTime); // 100 possible points per quesiton
     
     return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Start the game: ${widget.gameTitle}',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)
-          ),
-          Text(
-            'Description: ${widget.gameDescription}'
-          ),
-          Text (
-            'Number of Questions: $numOfQuestions'
-          ),
-          Text(
-            'Difficulty Level: ${widget.difficulty}'
-          ),
-          Text(
-            'Point Value Per Second: $basePointsPerSec'
-          ),
-          Text(
-            'Total Possible Points: $totalPossPoints'
-          ),
-          Text(
-            'Time to answer each question: ${widget.roundTime} seconds'
-          ),
-          Center(
-            child: ElevatedButton(
-              child: const Text('Start Game'),
-              onPressed: () {
-                setState(() => _state = GameState.playing);
-                _startTimer(answerTime);
-              },
-            )
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: AppThemeHelper.panelDecoration(context).copyWith(
+          // Added: make summary cards slightly more opaque so the counts remain readable in dark mode.
+          color: AppThemeHelper.isDark(context)
+              ? Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.92)
+              : Colors.white,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Start the game: ${widget.gameTitle}',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)
+            ),
+            SizedBox(height: 30),
+            Text(
+              'Description: ${widget.gameDescription}',
+              style: TextStyle(fontSize: 18),
+            ),
+            Text (
+              'Number of Questions: $numOfQuestions',
+              style: TextStyle(fontSize: 18),
+            ),
+            Text(
+              'Difficulty Level: ${widget.difficulty}',
+              style: TextStyle(fontSize: 18),
+            ),
+            Text(
+              'Point Value Per Second: $basePointsPerSec',
+              style: TextStyle(fontSize: 18),
+            ),
+            Text(
+              'Total Possible Points: $_totalPossiblePoints',
+              style: TextStyle(fontSize: 18),
+            ),
+            Text(
+              'Time to answer each question: ${widget.roundTime} seconds',
+              style: TextStyle(fontSize: 18),
+            ),
+            Center(
+              child: ElevatedButton(
+                child: const Text('Start Game'),
+                onPressed: () {
+                  setState(() => _state = GameState.playing);
+                  _startTimer(answerTime);
+                },
+              )
+            ),
+          ],
+        )
       )
     );
   }
@@ -293,6 +311,23 @@ class _TimedGameState extends State<TimedQuizGame> {
     final lmsService = LmsFactory.getLmsService();
     String customId = "${lmsService.fullName}-${widget.gameTitle}";
 
+    // Helper function to return a finish message based on the user's score
+    String? getFinishMessage() {
+      double scorePrecent = (_totalPointsEarned / _totalPossiblePoints) * 100;
+      print("Score is: $scorePrecent");
+      if (scorePrecent >= 90) {
+        return "Amazing Job!";
+      } else if (scorePrecent >= 75) {
+        return "Great Job!";
+      } else if (scorePrecent >= 60) {
+        return "There's Room for Improvement!";
+      } else if (scorePrecent >= 50) {
+        return "Better Luck Next Time!";
+      } else {
+        return "Needs Improvement.";
+      }
+    }
+
     // Only upload score if it is not 0
     if (_totalPointsEarned > 0 ) {
       leaderboardCollection.doc(customId).set({
@@ -315,6 +350,10 @@ class _TimedGameState extends State<TimedQuizGame> {
             Text(
               "Quiz Completed!",
               style: TextStyle(fontSize: 30, color: Colors.green),
+            ),
+            Text(
+              getFinishMessage() ?? "",
+              style: TextStyle(fontSize: 20),
             ),
             SizedBox(height: 40),
             Text(
