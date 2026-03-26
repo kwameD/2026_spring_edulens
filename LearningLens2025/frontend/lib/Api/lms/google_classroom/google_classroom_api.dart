@@ -44,34 +44,34 @@ class GoogleClassroomApi {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
 
-        // Move the folder to where GC expects it to be.
-        final driveUrl = Uri.https(
-          'www.googleapis.com',
-          '/drive/v3/files/${data['formId']}',
-          {
+        if (teacherFolderId != null && teacherFolderId.isNotEmpty) {
+          final driveUrl = Uri.https(
+            'www.googleapis.com',
+            '/drive/v3/files/${data['formId']}',
+            {
+              'addParents': teacherFolderId,
+              'removeParents': 'root',
+            },
+          );
+          final driveHeaders = {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          };
+          final driveBody = jsonEncode({
             'addParents': teacherFolderId,
             'removeParents': 'root',
-          },
-        );
-        final driveHeaders = {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        };
-        final driveBody = jsonEncode({
-          'addParents': teacherFolderId, // New parent folder
-          'removeParents': 'root',
-        });
+          });
 
-        // Remove from root (optional: fetch current parents if needed)
-        final driveResponse = await http.patch(
-          driveUrl,
-          headers: driveHeaders,
-          body: driveBody,
-        );
-        print(
-            '***********************************************************************************');
-        print("Drive Update Status: ${driveResponse.statusCode}");
-        print("Drive Update Body: ${driveResponse.body}");
+          final driveResponse = await http.patch(
+            driveUrl,
+            headers: driveHeaders,
+            body: driveBody,
+          );
+          print(
+              '***********************************************************************************');
+          print("Drive Update Status: ${driveResponse.statusCode}");
+          print("Drive Update Body: ${driveResponse.body}");
+        }
 
         return data;
       } else {
@@ -310,7 +310,9 @@ class GoogleClassroomApi {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final topics = data['topic'] as List<dynamic>;
+        final topics = (data['topic'] as List<dynamic>?) ??
+            (data['topics'] as List<dynamic>?) ??
+            const <dynamic>[];
 
         for (var topic in topics) {
           if (topic['name'] == title) {
@@ -330,6 +332,35 @@ class GoogleClassroomApi {
     }
 
     return null;
+  }
+
+  Future<Map<String, dynamic>?> createCourse(
+      String courseName, String sectionName) async {
+    final token = await _getToken();
+    if (token == null) return null;
+
+    final url = Uri.parse('https://classroom.googleapis.com/v1/courses');
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    final body = jsonEncode({
+      'name': courseName,
+      if (sectionName.trim().isNotEmpty) 'section': sectionName.trim(),
+    });
+
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+      print("Create Course Status: ${response.statusCode}");
+      print("Create Course Body: ${response.body}");
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      print('Error creating course: $e');
+      return null;
+    }
   }
 /*
  Future<void> createCourseWorkMaterial(String courseId, String accessToken, String title, ) async {
