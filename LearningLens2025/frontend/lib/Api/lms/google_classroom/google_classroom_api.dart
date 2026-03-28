@@ -113,12 +113,13 @@ class GoogleClassroomApi {
         final data = jsonDecode(response.body);
         return data;
       } else {
-        print('Form batch update failed: ${response.statusCode}');
-        return null;
+        throw Exception(
+          'Form batch update failed (${response.statusCode}): ${response.body}',
+        );
       }
     } catch (e) {
       print('Error updating form settings: $e');
-      return null;
+      rethrow;
     }
   }
 

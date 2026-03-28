@@ -339,7 +339,8 @@ class GoogleLmsService extends LmsInterface {
     return courses;
   }
 
-  Future<Course?> createCourse(String courseName, {String sectionName = ''}) async {
+  Future<Course?> createCourse(String courseName,
+      {String sectionName = ''}) async {
     if (_userToken == null) {
       throw StateError('User not logged in to Google Classroom');
     }
@@ -354,7 +355,8 @@ class GoogleLmsService extends LmsInterface {
     courses = [
       ...existingCourses.where((c) => c.id != course.id),
       course,
-    ]..sort((a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
+    ]..sort(
+        (a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
     return course;
   }
 
@@ -1188,11 +1190,12 @@ class GoogleLmsService extends LmsInterface {
             'emailCollectionType': 'DO_NOT_COLLECT',
             'quizSettings': {'isQuiz': true}
           },
-          'updateMask': 'email_collection_type,quiz_settings',
+          'updateMask': 'emailCollectionType,quizSettings.isQuiz',
         }
       });
 
       // Parse and add questions with answer keys and points
+      int questionIndex = 0;
       for (var questionElement in questions) {
         String questionType = questionElement.getAttribute('type') ?? 'unknown';
         String questionText = questionElement
@@ -1221,8 +1224,10 @@ class GoogleLmsService extends LmsInterface {
                 correctAnswerIndices.add(i);
               }
             }
-            requests.add(_createMultipleChoiceQuestionRequest(
-                questionText, options, correctAnswerIndices, points));
+            requests.add(_createMultipleChoiceQuestionRequest(questionText,
+                options, correctAnswerIndices, points, questionIndex));
+            questionIndex++;
+            continue;
           case 'truefalse':
             int points = 5; // Set truefalse to 5 points
             String correctAnswer = questionElement
@@ -1232,7 +1237,9 @@ class GoogleLmsService extends LmsInterface {
                     ?.text ??
                 'True';
             requests.add(_createTrueFalseQuestionRequest(
-                questionText, correctAnswer, points));
+                questionText, correctAnswer, points, questionIndex));
+            questionIndex++;
+            continue;
           case 'shortanswer':
             int points = 10; // Set shortanswer to 10 point
             String correctAnswer = questionElement
@@ -1242,9 +1249,12 @@ class GoogleLmsService extends LmsInterface {
                     ?.text ??
                 '';
             requests.add(_createShortAnswerQuestionRequest(
-                questionText, correctAnswer, points));
+                questionText, correctAnswer, points, questionIndex));
+            questionIndex++;
+            continue;
           default:
             print('Warning: Unsupported question type: $questionType');
+            continue;
         }
       }
 
@@ -1277,8 +1287,12 @@ class GoogleLmsService extends LmsInterface {
     }
   }
 
-  Map<String, dynamic> _createMultipleChoiceQuestionRequest(String questionText,
-      List<String> options, List<int> correctAnswerIndices, int points) {
+  Map<String, dynamic> _createMultipleChoiceQuestionRequest(
+      String questionText,
+      List<String> options,
+      List<int> correctAnswerIndices,
+      int points,
+      int questionIndex) {
     List<Map<String, dynamic>> choices = [];
     for (String option in options) {
       choices.add({'value': option});
@@ -1306,13 +1320,13 @@ class GoogleLmsService extends LmsInterface {
             },
           },
         },
-        'location': {'index': 0},
+        'location': {'index': questionIndex},
       },
     };
   }
 
-  Map<String, dynamic> _createTrueFalseQuestionRequest(
-      String questionText, String correctAnswer, int points) {
+  Map<String, dynamic> _createTrueFalseQuestionRequest(String questionText,
+      String correctAnswer, int points, int questionIndex) {
     return {
       'createItem': {
         'item': {
@@ -1338,13 +1352,13 @@ class GoogleLmsService extends LmsInterface {
             },
           },
         },
-        'location': {'index': 0},
+        'location': {'index': questionIndex},
       },
     };
   }
 
-  Map<String, dynamic> _createShortAnswerQuestionRequest(
-      String questionText, String correctAnswer, int points) {
+  Map<String, dynamic> _createShortAnswerQuestionRequest(String questionText,
+      String correctAnswer, int points, int questionIndex) {
     return {
       'createItem': {
         'item': {
@@ -1364,7 +1378,7 @@ class GoogleLmsService extends LmsInterface {
             },
           },
         },
-        'location': {'index': 0},
+        'location': {'index': questionIndex},
       },
     };
   }
