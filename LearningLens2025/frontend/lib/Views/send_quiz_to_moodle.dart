@@ -20,11 +20,11 @@ class QuizMoodle extends StatefulWidget {
 
 class QuizMoodleState extends State<QuizMoodle> {
   // Submission form dates
-  String selectedDaySubmission = '01';
-  String selectedMonthSubmission = 'January';
-  String selectedYearSubmission = '2025'; // Start from 2025
-  String selectedHourSubmission = '00';
-  String selectedMinuteSubmission = '00';
+  late String selectedDaySubmission;
+  late String selectedMonthSubmission;
+  late String selectedYearSubmission;
+  late String selectedHourSubmission;
+  late String selectedMinuteSubmission;
   late String quizasxml;
   late MoodleLmsService api;
   List<Course> courses = [];
@@ -40,11 +40,29 @@ class QuizMoodleState extends State<QuizMoodle> {
   @override
   void initState() {
     super.initState();
+    _initializeDateSelections();
     quizNameController = TextEditingController(text: widget.quiz.name ?? '');
     quizQuestionsController = TextEditingController();
     quizasxml = widget.quiz.toXmlString();
     fetchCourses();
     _getLmsType(); // Fetch LMS type on init
+  }
+
+  void _initializeDateSelections() {
+    final now = DateTime.now();
+    final initialDueDate = now.add(Duration(hours: 1));
+
+    selectedDaySubmission = now.day.toString().padLeft(2, '0');
+    selectedMonthSubmission = months[now.month - 1];
+    selectedYearSubmission = now.year.toString();
+    selectedHourSubmission = now.hour.toString().padLeft(2, '0');
+    selectedMinuteSubmission = now.minute.toString().padLeft(2, '0');
+
+    selectedDayDue = initialDueDate.day.toString().padLeft(2, '0');
+    selectedMonthDue = months[initialDueDate.month - 1];
+    selectedYearDue = initialDueDate.year.toString();
+    selectedHourDue = initialDueDate.hour.toString().padLeft(2, '0');
+    selectedMinuteDue = initialDueDate.minute.toString().padLeft(2, '0');
   }
 
   @override
@@ -171,11 +189,11 @@ class QuizMoodleState extends State<QuizMoodle> {
   }
 
   // Due date selection
-  String selectedDayDue = '01';
-  String selectedMonthDue = 'January';
-  String selectedYearDue = '2025'; // Start from 2025
-  String selectedHourDue = '00';
-  String selectedMinuteDue = '00';
+  late String selectedDayDue;
+  late String selectedMonthDue;
+  late String selectedYearDue;
+  late String selectedHourDue;
+  late String selectedMinuteDue;
 
   // Checkbox states
   bool isSubmissionEnabled = true;
@@ -197,7 +215,8 @@ class QuizMoodleState extends State<QuizMoodle> {
     'November',
     'December'
   ];
-  List<String> years = ['2025', '2026', '2027']; // Years starting from 2025
+  List<String> years =
+      List.generate(3, (index) => (DateTime.now().year + index).toString());
   List<String> hours =
       List.generate(24, (index) => index.toString().padLeft(2, '0'));
   List<String> minutes =
@@ -556,6 +575,15 @@ class QuizMoodleState extends State<QuizMoodle> {
                                   int.parse(selectedHourDue),
                                   int.parse(selectedMinuteDue),
                                 );
+
+                                if (!dueDate.isAfter(DateTime.now())) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'The due date must be in the future.')),
+                                  );
+                                  return;
+                                }
 
                                 String formattedDueDate =
                                     "${dueDate.year}-${dueDate.month.toString().padLeft(2, '0')}-${dueDate.day.toString().padLeft(2, '0')}-${dueDate.hour.toString().padLeft(2, '0')}-${dueDate.minute.toString().padLeft(2, '0')}";
