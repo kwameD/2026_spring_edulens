@@ -194,13 +194,8 @@ class GoogleClassroomApi {
       'Content-Type': 'application/json',
     };
 
-    // Parse the dueDate string to extract year, month, day, hours, and minutes
-    List<String> dateParts = dueDate.split('-');
-    int year = int.parse(dateParts[0]);
-    int month = int.parse(dateParts[1]);
-    int day = int.parse(dateParts[2]);
-    int hours = int.parse(dateParts[3]);
-    int minutes = int.parse(dateParts[4]);
+    final DateTime parsedDueDate = _parseDueDate(dueDate);
+    final DateTime utcDueDate = parsedDueDate.toUtc();
     final topicId = await getTopicId(courseId, 'quiz');
 
     print('topic id is : $topicId');
@@ -210,8 +205,16 @@ class GoogleClassroomApi {
       "description": description,
       "workType": "ASSIGNMENT",
       "state": "PUBLISHED",
-      "dueDate": {"year": year, "month": month, "day": day},
-      "dueTime": {"hours": hours, "minutes": minutes, "seconds": 0},
+      "dueDate": {
+        "year": utcDueDate.year,
+        "month": utcDueDate.month,
+        "day": utcDueDate.day
+      },
+      "dueTime": {
+        "hours": utcDueDate.hour,
+        "minutes": utcDueDate.minute,
+        "seconds": 0
+      },
       "materials": [
         {
           "link": {"url": responderUri}
@@ -237,15 +240,30 @@ class GoogleClassroomApi {
         print('Assignment created successfully with ID: $assignmentId');
         return assignmentId;
       } else {
-        print(
-            'Assignment creation failed inside createAssignment method : ${response.statusCode}');
-        print(response.body);
-        return null;
+        throw Exception(
+          'Classroom assignment create failed (${response.statusCode}): ${response.body}',
+        );
       }
     } catch (e) {
       print('Error creating assignment: $e');
-      return null;
+      rethrow;
     }
+  }
+
+  DateTime _parseDueDate(String dueDate) {
+    final dateParts = dueDate.split('-');
+    if (dateParts.length != 5) {
+      throw FormatException(
+          'Expected due date format yyyy-MM-dd-HH-mm, received: $dueDate');
+    }
+
+    return DateTime(
+      int.parse(dateParts[0]),
+      int.parse(dateParts[1]),
+      int.parse(dateParts[2]),
+      int.parse(dateParts[3]),
+      int.parse(dateParts[4]),
+    );
   }
 
   Future<String?> getTopicIdByCreating(String courseId, String title) async {
